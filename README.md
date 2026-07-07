@@ -1,3 +1,42 @@
+# Agentsure — Verification Gate
+
+An audit-grade verification gate: an AI agent calls `POST /verify` before
+committing a high-stakes output and gets back a verdict plus a signed,
+tamper-evident audit receipt. Commercial model and launch plan: `GTM.md`.
+
+## Run it
+```bash
+uv sync
+cp .env.example .env && echo "SIGNING_KEY=$(openssl rand -hex 32)" >> .env
+set -a && source .env && set +a
+uv run uvicorn app.main:app --port 8000
+# open http://localhost:8000 — landing page + developer console
+```
+
+## Endpoints
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| GET | `/` | — | Landing page + developer console (keys, usage, subscription, live demo) |
+| POST | `/keys` | — | Self-serve API key (`vg-…`), Free plan, 1,000 credits/mo |
+| POST | `/verify` | `X-API-Key` | Verify an output against evidence; returns verdict + signed receipt |
+| POST | `/receipt/verify` | — | Re-check a receipt's signature: `{"valid": true\|false}` |
+| GET | `/usage` | `X-API-Key` | Credits used/remaining for the current period |
+| POST | `/subscribe` | `X-API-Key` | Switch plans (free / starter / growth / payg) |
+| GET | `/health` | — | Liveness |
+
+Credits per `/verify` call: `fast` = 1, `standard` = 2, `strict` = 3.
+
+```bash
+KEY=$(curl -s -X POST localhost:8000/keys -H 'Content-Type: application/json' \
+  -d '{"email":"you@company.com"}' | jq -r .api_key)
+curl -s -X POST localhost:8000/verify -H "X-API-Key: $KEY" -H 'Content-Type: application/json' \
+  -d '{"output":"Q3 revenue grew 12% to $4.1M.",
+       "source_documents":[{"id":"10q","text":"Revenue increased 12% to $4.1M in Q3."}],
+       "rigor_level":"standard"}' | jq .verdict
+```
+
+---
+
 # Ralph build harness — Verification Gate MVP
 
 An autonomous Claude Code build system that grinds out the verification-gate MVP
