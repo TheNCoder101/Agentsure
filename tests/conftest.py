@@ -5,6 +5,8 @@ from collections.abc import Iterator
 # Must be set before app modules import: signing needs the key, the store
 # needs an isolated database.
 os.environ.setdefault("SIGNING_KEY", "test-signing-key-not-for-production")
+# Fixed test-only seed (32 raw bytes, base64) — not used for anything real.
+os.environ.setdefault("ED25519_SIGNING_KEY", "kVzNWaYLc392cR0kAZYV2r2ILXQ/x9Y/WhvjA43Mqvs=")
 os.environ["VG_DB_PATH"] = os.path.join(tempfile.mkdtemp(), "test.db")
 
 import pytest

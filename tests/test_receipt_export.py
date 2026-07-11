@@ -12,6 +12,7 @@ _RECEIPT = Receipt(
     rigor_level=RigorLevel.STANDARD,
     engine_version="0.1.0",
     signature="c" * 64,
+    ed25519_signature="ZWQyNTUxOXNpZ25hdHVyZXBsYWNlaG9sZGVy",
 )
 
 
@@ -20,7 +21,7 @@ class TestCsvExport:
         rows = to_csv([]).splitlines()
         assert rows == [
             "receipt_id,issued_at,verdict,output_sha256,sources_sha256,"
-            "rigor_level,engine_version,signature"
+            "rigor_level,engine_version,signature,ed25519_signature"
         ]
 
     def test_one_row_per_receipt(self) -> None:

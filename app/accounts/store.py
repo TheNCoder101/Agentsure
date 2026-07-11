@@ -109,7 +109,8 @@ def init_db() -> None:
                 sources_sha256 TEXT NOT NULL,
                 rigor_level TEXT NOT NULL,
                 engine_version TEXT NOT NULL,
-                signature TEXT NOT NULL
+                signature TEXT NOT NULL,
+                ed25519_signature TEXT NOT NULL DEFAULT ''
             )"""
         )
         conn.execute(
@@ -199,11 +200,11 @@ def get_usage(record: KeyRecord) -> UsageInfo:
 
 _RECEIPT_COLUMNS = (
     "receipt_id, issued_at, verdict, output_sha256, sources_sha256, "
-    "rigor_level, engine_version, signature"
+    "rigor_level, engine_version, signature, ed25519_signature"
 )
 
 
-def _row_to_receipt(row: tuple[str, str, str, str, str, str, str, str]) -> Receipt:
+def _row_to_receipt(row: tuple[str, str, str, str, str, str, str, str, str]) -> Receipt:
     return Receipt(
         receipt_id=row[0],
         issued_at=row[1],
@@ -213,6 +214,7 @@ def _row_to_receipt(row: tuple[str, str, str, str, str, str, str, str]) -> Recei
         rigor_level=RigorLevel(row[5]),
         engine_version=row[6],
         signature=row[7],
+        ed25519_signature=row[8],
     )
 
 
@@ -223,7 +225,7 @@ def save_receipt(record: KeyRecord, receipt: Receipt) -> None:
     with _connect() as conn:
         conn.execute(
             f"INSERT INTO receipts (key_id, {_RECEIPT_COLUMNS}) "
-            f"VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            f"VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 record.key_id,
                 receipt.receipt_id,
@@ -234,6 +236,7 @@ def save_receipt(record: KeyRecord, receipt: Receipt) -> None:
                 receipt.rigor_level.value,
                 receipt.engine_version,
                 receipt.signature,
+                receipt.ed25519_signature,
             ),
         )
 

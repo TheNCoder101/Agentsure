@@ -11,7 +11,14 @@ from fastapi.responses import HTMLResponse, PlainTextResponse, Response
 from pydantic import BaseModel, Field
 
 from app.accounts import store
-from app.models import Receipt, ReceiptVerifyResponse, VerifyRequest, VerifyResponse
+from app.models import (
+    PublicKeyResponse,
+    Receipt,
+    ReceiptVerifyResponse,
+    VerifyRequest,
+    VerifyResponse,
+)
+from app.receipt import ed25519
 from app.receipt.build import build_receipt
 from app.receipt.export import to_csv, to_pdf
 from app.receipt.sign import SigningKeyMissingError, verify_signature
@@ -104,7 +111,7 @@ async def verify(
         receipt = build_receipt(
             body.output, body.source_documents, result.verdict, body.rigor_level
         )
-    except SigningKeyMissingError as exc:
+    except (SigningKeyMissingError, ed25519.Ed25519KeyMissingError) as exc:
         raise HTTPException(status_code=503, detail="signing key not configured") from exc
     store.save_receipt(key, receipt)
     return VerifyResponse(
@@ -118,11 +125,38 @@ async def verify(
 
 @app.post("/receipt/verify")
 async def receipt_verify(receipt: Receipt) -> ReceiptVerifyResponse:
+    """Convenience self-check. For verification that doesn't require trusting
+    us to still be operating or cooperative, use the Ed25519 public key from
+    GET /.well-known/agentsure-receipt-key and verify offline instead."""
+    fields = receipt.model_dump(mode="json")
     try:
-        valid = verify_signature(receipt.model_dump(mode="json"))
+        valid = verify_signature(fields)
     except SigningKeyMissingError as exc:
         raise HTTPException(status_code=503, detail="signing key not configured") from exc
-    return ReceiptVerifyResponse(valid=valid)
+    try:
+        ed25519_valid = ed25519.verify(fields, ed25519.public_key_b64())
+    except ed25519.Ed25519KeyMissingError as exc:
+        raise HTTPException(status_code=503, detail="ed25519 signing key not configured") from exc
+    return ReceiptVerifyResponse(valid=valid, ed25519_valid=ed25519_valid)
+
+
+@app.get("/.well-known/agentsure-receipt-key")
+async def receipt_public_key() -> PublicKeyResponse:
+    try:
+        key = ed25519.public_key_b64()
+    except ed25519.Ed25519KeyMissingError as exc:
+        raise HTTPException(status_code=503, detail="ed25519 signing key not configured") from exc
+    return PublicKeyResponse(
+        algorithm="ed25519",
+        public_key_b64=key,
+        note=(
+            "Verify a receipt's ed25519_signature offline with this key and the "
+            "canonical body (sorted-key, no-whitespace JSON of every receipt field "
+            "except signature/ed25519_signature) — no call to this API required. "
+            "See scripts/verify_receipt_offline.py for a standalone reference "
+            "implementation."
+        ),
+    )
 
 
 class ReceiptListResponse(BaseModel):

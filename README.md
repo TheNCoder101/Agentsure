@@ -7,11 +7,16 @@ tamper-evident audit receipt. Commercial model and launch plan: `GTM.md`.
 ## Run it
 ```bash
 uv sync
-cp .env.example .env && echo "SIGNING_KEY=$(openssl rand -hex 32)" >> .env
+cp .env.example .env
+echo "SIGNING_KEY=$(openssl rand -hex 32)" >> .env
+echo "ED25519_SIGNING_KEY=$(uv run python -c 'import base64,os;print(base64.b64encode(os.urandom(32)).decode())')" >> .env
 set -a && source .env && set +a
 uv run uvicorn app.main:app --port 8000
 # open http://localhost:8000 — landing page + developer console
 ```
+
+Set `ANTHROPIC_API_KEY` too if you want the real LLM judge instead of the
+deterministic heuristic fallback used in keyless dev environments.
 
 ## Endpoints
 | Method | Path | Auth | Purpose |
@@ -19,10 +24,20 @@ uv run uvicorn app.main:app --port 8000
 | GET | `/` | — | Landing page + developer console (keys, usage, subscription, live demo) |
 | POST | `/keys` | — | Self-serve API key (`vg-…`), Free plan, 1,000 credits/mo |
 | POST | `/verify` | `X-API-Key` | Verify an output against evidence; returns verdict + signed receipt |
-| POST | `/receipt/verify` | — | Re-check a receipt's signature: `{"valid": true\|false}` |
+| POST | `/receipt/verify` | — | Re-check a receipt's signatures: `{"valid", "ed25519_valid"}` |
+| GET | `/receipts` | `X-API-Key` | List your receipts (`?format=csv` for bulk export) |
+| GET | `/receipts/{id}` | `X-API-Key` | Look up one of your receipts by id |
+| GET | `/receipts/{id}/pdf` | `X-API-Key` | Single-receipt PDF hand-off document |
+| GET | `/.well-known/agentsure-receipt-key` | — | Published Ed25519 public key for offline verification |
 | GET | `/usage` | `X-API-Key` | Credits used/remaining for the current period |
 | POST | `/subscribe` | `X-API-Key` | Switch plans (free / starter / growth / payg) |
 | GET | `/health` | — | Liveness |
+
+Every receipt is signed two ways: HMAC-SHA256 (checked via
+`POST /receipt/verify`, which trusts us to still be operating) and Ed25519
+(checked offline via `scripts/verify_receipt_offline.py` and the published
+public key — no call to this API required, so a regulator or auditor can
+verify a receipt's authenticity without trusting Agentsure at all).
 
 Credits per `/verify` call: `fast` = 1, `standard` = 2, `strict` = 3.
 

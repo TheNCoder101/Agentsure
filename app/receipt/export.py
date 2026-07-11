@@ -19,6 +19,7 @@ CSV_HEADER = [
     "rigor_level",
     "engine_version",
     "signature",
+    "ed25519_signature",
 ]
 
 
@@ -37,6 +38,7 @@ def to_csv(receipts: list[Receipt]) -> str:
                 r.rigor_level.value,
                 r.engine_version,
                 r.signature,
+                r.ed25519_signature,
             ]
         )
     return buffer.getvalue()
@@ -71,6 +73,7 @@ def to_pdf(receipt: Receipt) -> bytes:
         ("Output SHA-256", receipt.output_sha256),
         ("Source SHA-256(es)", ", ".join(receipt.sources_sha256)),
         ("Signature (HMAC-SHA256)", receipt.signature),
+        ("Signature (Ed25519)", receipt.ed25519_signature),
     ]
     for label, value in fields:
         pdf.set_font("Helvetica", "B", 10)
@@ -86,8 +89,9 @@ def to_pdf(receipt: Receipt) -> bytes:
         6,
         "This receipt attests only to the hashes above - it does not contain the "
         "underlying output or source text. Verify its authenticity by submitting "
-        "these fields to POST /receipt/verify, or offline via the published "
-        "Ed25519 public key once asymmetric signing is enabled.",
+        "these fields to POST /receipt/verify, or independently offline using the "
+        "published Ed25519 public key (GET /.well-known/agentsure-receipt-key) - "
+        "no call to our API required.",
         new_x="LMARGIN",
         new_y="NEXT",
     )

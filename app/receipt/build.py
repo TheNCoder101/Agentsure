@@ -5,6 +5,7 @@ import uuid
 from datetime import UTC, datetime
 
 from app.models import Receipt, RigorLevel, SourceDocument, Verdict
+from app.receipt import ed25519
 from app.receipt.sign import sign
 
 ENGINE_VERSION = "0.1.0"
@@ -29,5 +30,12 @@ def build_receipt(
         rigor_level=rigor_level,
         engine_version=ENGINE_VERSION,
         signature="",
+        ed25519_signature="",
     )
-    return receipt.model_copy(update={"signature": sign(receipt.model_dump(mode="json"))})
+    fields = receipt.model_dump(mode="json")
+    return receipt.model_copy(
+        update={
+            "signature": sign(fields),
+            "ed25519_signature": ed25519.sign(fields),
+        }
+    )

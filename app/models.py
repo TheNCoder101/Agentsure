@@ -49,6 +49,7 @@ class Receipt(BaseModel):
     rigor_level: RigorLevel
     engine_version: str
     signature: str
+    ed25519_signature: str
 
 
 class VerifyResponse(BaseModel):
@@ -61,3 +62,10 @@ class VerifyResponse(BaseModel):
 
 class ReceiptVerifyResponse(BaseModel):
     valid: bool
+    ed25519_valid: bool
+
+
+class PublicKeyResponse(BaseModel):
+    algorithm: str
+    public_key_b64: str
+    note: str

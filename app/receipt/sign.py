@@ -11,6 +11,9 @@ import os
 from typing import Any
 
 _ENV_VAR = "SIGNING_KEY"
+# Both signature fields are excluded from the canonical body — HMAC and
+# Ed25519 sign the identical canonical content, neither signs the other.
+_SIGNATURE_FIELDS = frozenset({"signature", "ed25519_signature"})
 
 
 class SigningKeyMissingError(RuntimeError):
@@ -26,8 +29,8 @@ def _signing_key() -> bytes:
 
 
 def canonical_body(fields: dict[str, Any]) -> bytes:
-    """Deterministic serialization: sorted keys, no whitespace, no signature field."""
-    body = {k: v for k, v in fields.items() if k != "signature"}
+    """Deterministic serialization: sorted keys, no whitespace, no signature fields."""
+    body = {k: v for k, v in fields.items() if k not in _SIGNATURE_FIELDS}
     return json.dumps(body, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
 
 

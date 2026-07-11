@@ -5,6 +5,7 @@ description = "Audit-grade verification gate: verdicts plus signed, tamper-evide
 requires-python = ">=3.12"
 dependencies = [
     "anthropic>=0.116.0",
+    "cryptography>=49.0.0",
     "fastapi>=0.115",
     "fpdf2>=2.8.7",
     "pydantic>=2.9",

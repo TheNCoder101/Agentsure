@@ -2,6 +2,7 @@
 
 from typing import Any
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.accounts import store
@@ -102,12 +103,44 @@ class TestEscalationCostControl:
 class TestReceiptEndpoint:
     def test_round_trip_receipt_is_valid(self, client: TestClient, api_key: str) -> None:
         receipt = _verify(client, api_key, GROUNDED_OUTPUT).json()["receipt"]
-        assert client.post("/receipt/verify", json=receipt).json() == {"valid": True}
+        assert client.post("/receipt/verify", json=receipt).json() == {
+            "valid": True,
+            "ed25519_valid": True,
+        }
 
     def test_tampered_receipt_is_invalid(self, client: TestClient, api_key: str) -> None:
         receipt = _verify(client, api_key, UNGROUNDED_OUTPUT).json()["receipt"]
         tampered = dict(receipt, verdict="supported")  # launder the verdict
-        assert client.post("/receipt/verify", json=tampered).json() == {"valid": False}
+        assert client.post("/receipt/verify", json=tampered).json() == {
+            "valid": False,
+            "ed25519_valid": False,
+        }
+
+    def test_public_key_endpoint(self, client: TestClient) -> None:
+        response = client.get("/.well-known/agentsure-receipt-key")
+        assert response.status_code == 200
+        body = response.json()
+        assert body["algorithm"] == "ed25519"
+        assert len(body["public_key_b64"]) > 0
+
+    def test_receipt_verifiable_offline_with_published_key(
+        self, client: TestClient, api_key: str
+    ) -> None:
+        from app.receipt import ed25519
+
+        receipt = _verify(client, api_key, GROUNDED_OUTPUT).json()["receipt"]
+        public_key = client.get("/.well-known/agentsure-receipt-key").json()["public_key_b64"]
+        assert ed25519.verify(receipt, public_key) is True
+
+    def test_tampered_receipt_fails_offline_verification(
+        self, client: TestClient, api_key: str
+    ) -> None:
+        from app.receipt import ed25519
+
+        receipt = _verify(client, api_key, GROUNDED_OUTPUT).json()["receipt"]
+        public_key = client.get("/.well-known/agentsure-receipt-key").json()["public_key_b64"]
+        tampered = dict(receipt, output_sha256="0" * 64)
+        assert ed25519.verify(tampered, public_key) is False
 
 
 class TestReceiptPersistence:
@@ -163,6 +196,12 @@ class TestReceiptPersistence:
     def test_receipts_require_auth(self, client: TestClient) -> None:
         assert client.get("/receipts").status_code == 401
         assert client.get("/receipts/anything").status_code == 401
+
+    def test_verify_returns_503_when_ed25519_key_missing(
+        self, client: TestClient, api_key: str, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("ED25519_SIGNING_KEY")
+        assert _verify(client, api_key, GROUNDED_OUTPUT).status_code == 503
 
 
 class TestAuthAndCredits:
