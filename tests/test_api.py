@@ -110,6 +110,61 @@ class TestReceiptEndpoint:
         assert client.post("/receipt/verify", json=tampered).json() == {"valid": False}
 
 
+class TestReceiptPersistence:
+    def test_receipt_lookup_round_trips(self, client: TestClient, api_key: str) -> None:
+        receipt = _verify(client, api_key, GROUNDED_OUTPUT).json()["receipt"]
+        response = client.get(
+            f"/receipts/{receipt['receipt_id']}", headers={"X-API-Key": api_key}
+        )
+        assert response.status_code == 200
+        assert response.json() == receipt
+
+    def test_unknown_receipt_id_is_404(self, client: TestClient, api_key: str) -> None:
+        response = client.get("/receipts/does-not-exist", headers={"X-API-Key": api_key})
+        assert response.status_code == 404
+
+    def test_receipt_not_visible_to_a_different_key(
+        self, client: TestClient, api_key: str
+    ) -> None:
+        receipt = _verify(client, api_key, GROUNDED_OUTPUT).json()["receipt"]
+        other_key = client.post("/keys", json={"email": "other@example.com"}).json()["api_key"]
+        response = client.get(
+            f"/receipts/{receipt['receipt_id']}", headers={"X-API-Key": other_key}
+        )
+        assert response.status_code == 404
+
+    def test_list_receipts_scoped_to_key(self, client: TestClient, api_key: str) -> None:
+        _verify(client, api_key, GROUNDED_OUTPUT)
+        _verify(client, api_key, UNGROUNDED_OUTPUT)
+        other_key = client.post("/keys", json={"email": "other2@example.com"}).json()["api_key"]
+        _verify(client, other_key, GROUNDED_OUTPUT)
+
+        response = client.get("/receipts", headers={"X-API-Key": api_key})
+        assert response.status_code == 200
+        assert len(response.json()["receipts"]) == 2
+
+    def test_list_receipts_as_csv(self, client: TestClient, api_key: str) -> None:
+        receipt = _verify(client, api_key, GROUNDED_OUTPUT).json()["receipt"]
+        response = client.get("/receipts?format=csv", headers={"X-API-Key": api_key})
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/csv")
+        assert receipt["receipt_id"] in response.text
+        assert receipt["signature"] in response.text
+
+    def test_receipt_pdf_export(self, client: TestClient, api_key: str) -> None:
+        receipt = _verify(client, api_key, GROUNDED_OUTPUT).json()["receipt"]
+        response = client.get(
+            f"/receipts/{receipt['receipt_id']}/pdf", headers={"X-API-Key": api_key}
+        )
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "application/pdf"
+        assert response.content.startswith(b"%PDF-")
+
+    def test_receipts_require_auth(self, client: TestClient) -> None:
+        assert client.get("/receipts").status_code == 401
+        assert client.get("/receipts/anything").status_code == 401
+
+
 class TestAuthAndCredits:
     def test_missing_key_rejected(self, client: TestClient) -> None:
         response = client.post("/verify", json={})

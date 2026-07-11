@@ -7,12 +7,13 @@ from pathlib import Path
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, Header, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse, Response
 from pydantic import BaseModel, Field
 
 from app.accounts import store
 from app.models import Receipt, ReceiptVerifyResponse, VerifyRequest, VerifyResponse
 from app.receipt.build import build_receipt
+from app.receipt.export import to_csv, to_pdf
 from app.receipt.sign import SigningKeyMissingError, verify_signature
 from app.verify.judge import AnthropicJudge, HeuristicJudge, JudgeClient
 from app.verify.pipeline import run_verification
@@ -105,6 +106,7 @@ async def verify(
         )
     except SigningKeyMissingError as exc:
         raise HTTPException(status_code=503, detail="signing key not configured") from exc
+    store.save_receipt(key, receipt)
     return VerifyResponse(
         verdict=result.verdict,
         unsupported_claims=result.unsupported_claims,
@@ -121,6 +123,50 @@ async def receipt_verify(receipt: Receipt) -> ReceiptVerifyResponse:
     except SigningKeyMissingError as exc:
         raise HTTPException(status_code=503, detail="signing key not configured") from exc
     return ReceiptVerifyResponse(valid=valid)
+
+
+class ReceiptListResponse(BaseModel):
+    receipts: list[Receipt]
+
+
+@app.get("/receipts", response_model=None)
+async def list_receipts(
+    key: Annotated[store.KeyRecord, Depends(require_api_key)],
+    format: str = "json",
+    limit: int = 100,
+) -> ReceiptListResponse | PlainTextResponse:
+    receipts = store.list_receipts(key, limit=limit)
+    if format == "csv":
+        return PlainTextResponse(
+            to_csv(receipts),
+            media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=receipts.csv"},
+        )
+    return ReceiptListResponse(receipts=receipts)
+
+
+@app.get("/receipts/{receipt_id}")
+async def get_receipt(
+    receipt_id: str, key: Annotated[store.KeyRecord, Depends(require_api_key)]
+) -> Receipt:
+    receipt = store.get_receipt(key, receipt_id)
+    if receipt is None:
+        raise HTTPException(status_code=404, detail="receipt not found")
+    return receipt
+
+
+@app.get("/receipts/{receipt_id}/pdf")
+async def get_receipt_pdf(
+    receipt_id: str, key: Annotated[store.KeyRecord, Depends(require_api_key)]
+) -> Response:
+    receipt = store.get_receipt(key, receipt_id)
+    if receipt is None:
+        raise HTTPException(status_code=404, detail="receipt not found")
+    return Response(
+        content=to_pdf(receipt),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={receipt_id}.pdf"},
+    )
 
 
 class SubscribeRequest(BaseModel):

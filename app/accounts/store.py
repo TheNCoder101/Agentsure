@@ -7,13 +7,14 @@ SHA-256 hashes — the plaintext key is shown exactly once at creation.
 """
 
 import hashlib
+import json
 import os
 import secrets
 import sqlite3
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from app.models import RigorLevel
+from app.models import Receipt, RigorLevel, Verdict
 
 KEY_PREFIX = "vg-"
 
@@ -98,6 +99,22 @@ def init_db() -> None:
                 PRIMARY KEY (key_id, period)
             )"""
         )
+        conn.execute(
+            """CREATE TABLE IF NOT EXISTS receipts (
+                receipt_id TEXT PRIMARY KEY,
+                key_id INTEGER NOT NULL REFERENCES api_keys(id),
+                issued_at TEXT NOT NULL,
+                verdict TEXT NOT NULL,
+                output_sha256 TEXT NOT NULL,
+                sources_sha256 TEXT NOT NULL,
+                rigor_level TEXT NOT NULL,
+                engine_version TEXT NOT NULL,
+                signature TEXT NOT NULL
+            )"""
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS receipts_key_id_idx ON receipts (key_id, issued_at)"
+        )
 
 
 def create_key(email: str, plan: str = SELF_SERVE_PLAN) -> str:
@@ -178,3 +195,65 @@ def get_usage(record: KeyRecord) -> UsageInfo:
         credits_used=int(row[0]) if row else 0,
         credits_limit=PLAN_CREDITS[record.plan],
     )
+
+
+_RECEIPT_COLUMNS = (
+    "receipt_id, issued_at, verdict, output_sha256, sources_sha256, "
+    "rigor_level, engine_version, signature"
+)
+
+
+def _row_to_receipt(row: tuple[str, str, str, str, str, str, str, str]) -> Receipt:
+    return Receipt(
+        receipt_id=row[0],
+        issued_at=row[1],
+        verdict=Verdict(row[2]),
+        output_sha256=row[3],
+        sources_sha256=json.loads(row[4]),
+        rigor_level=RigorLevel(row[5]),
+        engine_version=row[6],
+        signature=row[7],
+    )
+
+
+def save_receipt(record: KeyRecord, receipt: Receipt) -> None:
+    """Persist a receipt's metadata — never the raw output or source text,
+    only what the Receipt model itself carries (hashes, verdict, signature),
+    matching the receipt's own privacy-conscious design."""
+    with _connect() as conn:
+        conn.execute(
+            f"INSERT INTO receipts (key_id, {_RECEIPT_COLUMNS}) "
+            f"VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                record.key_id,
+                receipt.receipt_id,
+                receipt.issued_at,
+                receipt.verdict.value,
+                receipt.output_sha256,
+                json.dumps(receipt.sources_sha256),
+                receipt.rigor_level.value,
+                receipt.engine_version,
+                receipt.signature,
+            ),
+        )
+
+
+def get_receipt(record: KeyRecord, receipt_id: str) -> Receipt | None:
+    """Look up a receipt by id, scoped to the requesting key — a key may only
+    read back receipts it issued, never another customer's."""
+    with _connect() as conn:
+        row = conn.execute(
+            f"SELECT {_RECEIPT_COLUMNS} FROM receipts WHERE receipt_id = ? AND key_id = ?",
+            (receipt_id, record.key_id),
+        ).fetchone()
+    return _row_to_receipt(row) if row else None
+
+
+def list_receipts(record: KeyRecord, limit: int = 100) -> list[Receipt]:
+    with _connect() as conn:
+        rows = conn.execute(
+            f"SELECT {_RECEIPT_COLUMNS} FROM receipts WHERE key_id = ? "
+            f"ORDER BY issued_at DESC LIMIT ?",
+            (record.key_id, limit),
+        ).fetchall()
+    return [_row_to_receipt(row) for row in rows]
