@@ -79,6 +79,59 @@ class TestCheapPass:
         )
         assert result.supported
 
+    def test_negated_claim_against_affirmative_source_flagged(self) -> None:
+        result = check_claim(
+            "Revenue did not increase this quarter",
+            _docs("Revenue increased 12% this quarter."),
+        )
+        assert not result.supported
+        assert "negation mismatch" in result.reason
+
+    def test_affirmative_claim_against_negated_source_flagged(self) -> None:
+        result = check_claim(
+            "Revenue increased this quarter",
+            _docs("Revenue did not increase this quarter."),
+        )
+        assert not result.supported
+        assert "negation mismatch" in result.reason
+
+    def test_negation_contraction_detected(self) -> None:
+        result = check_claim(
+            "Revenue wasn't up this quarter",
+            _docs("Revenue was up sharply this quarter."),
+        )
+        assert not result.supported
+        assert "negation mismatch" in result.reason
+
+    def test_matching_negation_on_both_sides_not_flagged(self) -> None:
+        result = check_claim(
+            "The trial found no evidence of harm",
+            _docs("The trial found no evidence of harm in the treatment group."),
+        )
+        assert result.supported
+
+    def test_negation_elsewhere_in_unrelated_sentence_not_flagged(self) -> None:
+        # "not" appears in the source, but not in the sentence that actually
+        # matches the claim — must not spuriously trigger a negation flag.
+        result = check_claim(
+            "Revenue increased 12% to $4.1M",
+            _docs(
+                "The board did not comment on strategy. "
+                "Revenue increased 12% to $4.1M this quarter."
+            ),
+        )
+        assert result.supported
+
+    def test_stemming_matches_tense_variants(self) -> None:
+        # Isolates stemming specifically: without it, only "quarterly"/"costs"
+        # overlap (2/4 = 0.5, below threshold). Stemming "declined" and
+        # "declining" to the same root is what tips this over 0.55.
+        result = check_claim(
+            "Quarterly costs declined significantly",
+            _docs("Quarterly costs are declining due to efficiency gains."),
+        )
+        assert result.supported, result.reason
+
 
 class TestJudge:
     def test_heuristic_judge_confirms_unsupported(self) -> None:

@@ -6,7 +6,6 @@ ever passed to a judge — enforced by the pipeline, asserted by tests.
 """
 
 import json
-import re
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -14,7 +13,7 @@ import anthropic
 from anthropic.types import TextBlock
 
 from app.models import SourceDocument
-from app.verify.cheap import SUPPORT_THRESHOLD, _tokens
+from app.verify.cheap import SUPPORT_THRESHOLD, _tokens, split_sentences
 
 DEFAULT_JUDGE_MODEL = "claude-sonnet-5"
 
@@ -26,10 +25,6 @@ _JUDGE_SYSTEM_PROMPT = (
     '{"supported": true|false, "confidence": <0.0-1.0>, "reason": "<one sentence>"}. '
     "No prose outside the JSON object."
 )
-
-# Sentence boundary = terminal punctuation followed by whitespace, so decimal
-# amounts like "$4.1M" are never split apart.
-_SENTENCE = re.compile(r"(?<=[.!?])\s+")
 
 
 @dataclass(frozen=True)
@@ -57,7 +52,7 @@ class HeuristicJudge:
             return JudgeVerdict(supported=False, confidence=0.5, reason="empty claim")
         best = 0.0
         for doc in sources:
-            for sentence in _SENTENCE.split(doc.text):
+            for sentence in split_sentences(doc.text):
                 tokens = _tokens(sentence)
                 if tokens:
                     best = max(best, len(claim_tokens & tokens) / len(claim_tokens))
