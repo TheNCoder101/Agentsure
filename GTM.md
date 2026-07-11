@@ -1,5 +1,8 @@
 # GTM plan — Agentsure Verification Gate
 
+> See `ROADMAP_V2.md` for the prioritized V2 plan (why the launch checklist
+> below is necessary but not sufficient, and what comes after it).
+
 ## Positioning
 **"Proof, not promises."** An inline API an AI agent calls before committing a
 high-stakes output. Returns a verdict + a signed, tamper-evident audit receipt
