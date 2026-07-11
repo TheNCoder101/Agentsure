@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Audit-grade verification gate: verdicts plus signed, tamper-evident audit receipts."
 requires-python = ">=3.12"
 dependencies = [
+    "anthropic>=0.116.0",
     "fastapi>=0.115",
     "pydantic>=2.9",
     "uvicorn>=0.30",
@@ -13,9 +14,9 @@ dependencies = [
 dev = [
     "pytest>=8.3",
     "httpx>=0.27",
-    "httpx2>=1.0",
     "ruff>=0.8",
     "mypy>=1.13",
+    "httpx2>=2.5.0",
 ]
 
 [build-system]

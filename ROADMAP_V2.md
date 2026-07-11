@@ -66,14 +66,19 @@ a compliance team depends on and a dev team can't easily replace.
 
 Ordered by trust unlocked per unit of effort:
 
-1. **Real LLM judge.** Replace `HeuristicJudge` with an Anthropic-backed
-   `JudgeClient` (`app/verify/judge.py` already defines the `Protocol` — a
-   clean swap, not a rewrite). Add a labeled eval set (known-supported /
-   known-unsupported / adversarial claims) as a checked-in accuracy
-   benchmark. **This benchmark becomes marketing collateral** — "94%
-   hallucination catch rate at N% false-positive rate" is a stronger sales
-   asset than the current pricing page, and it's the proof-not-promises
-   story applied to the product itself.
+1. **Real LLM judge.** ✅ Shipped 2026-07-11: `AnthropicJudge` in
+   `app/verify/judge.py`, wired in behind `ANTHROPIC_API_KEY`
+   (`app/main.py:get_judge`), fails closed on any API error or unparsable
+   response. Labeled eval set + benchmark harness in
+   `app/verify/benchmark.py` (8 cases incl. adversarial near-miss-number,
+   fabricated-citation, and unstated-causal-reasoning claims). **Still
+   outstanding: the actual accuracy number.** The harness has only been run
+   against a scripted fake judge in tests — nobody has run
+   `uv run python -m app.verify.benchmark` against the live Anthropic API
+   yet (needs real credentials; not something the automated loop can do
+   under CLAUDE.md's no-network-side-effects rule). Run it and commit the
+   number — that's what turns this into marketing collateral. **Don't put
+   "AI-verified" copy on the landing page until that number exists.**
 2. **Receipt persistence + lookup/export.** Add a receipt store (SQLite now,
    same Postgres migration path already planned), `GET /receipts/{id}`, and
    CSV/PDF export. Without this the "Growth plan retention" promise in
@@ -94,9 +99,10 @@ Ordered by trust unlocked per unit of effort:
    `api.agentsure.dev`, uptime monitoring, structured logs with a test
    proving `SIGNING_KEY` is never logged.
 7. **Legal.** ToS, privacy policy, DPA template.
-8. **Housekeeping.** `pyproject.toml` lists both `httpx>=0.27` and
-   `httpx2>=1.0` — the latter isn't a package expected here; verify it's
-   intentional (or a typo) before it ships to more users.
+8. ~~**Housekeeping.**~~ `pyproject.toml` lists both `httpx>=0.27` and
+   `httpx2` — checked: this is intentional, not a typo. Starlette's
+   `TestClient` recommends installing `httpx2`, and removing it reintroduces
+   a deprecation warning in the test run.
 
 Each item should land as its own properly-sized (~150 line) `fix_plan.md`
 backlog entry per the existing Ralph loop discipline in `CLAUDE.md`, rather

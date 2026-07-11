@@ -5,12 +5,27 @@ in a real LLM client without touching the pipeline. Only flagged claims are
 ever passed to a judge — enforced by the pipeline, asserted by tests.
 """
 
+import json
 import re
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Any, Protocol
+
+import anthropic
+from anthropic.types import TextBlock
 
 from app.models import SourceDocument
 from app.verify.cheap import SUPPORT_THRESHOLD, _tokens
+
+DEFAULT_JUDGE_MODEL = "claude-sonnet-5"
+
+_JUDGE_SYSTEM_PROMPT = (
+    "You are a strict fact-checking judge. Given a CLAIM and one or more SOURCE "
+    "documents, decide whether the claim is directly supported by the sources — "
+    "explicitly stated or trivially entailed, never by outside knowledge or "
+    "assumption. Respond with ONLY a single-line JSON object of the form "
+    '{"supported": true|false, "confidence": <0.0-1.0>, "reason": "<one sentence>"}. '
+    "No prose outside the JSON object."
+)
 
 # Sentence boundary = terminal punctuation followed by whitespace, so decimal
 # amounts like "$4.1M" are never split apart.
@@ -54,6 +69,56 @@ class HeuristicJudge:
             supported=False,
             confidence=1.0 - best,
             reason="no source sentence substantiates the claim",
+        )
+
+
+class AnthropicJudge:
+    """LLM-as-judge backed by the Anthropic Messages API.
+
+    Only claims flagged by the cheap pass ever reach this client (enforced by
+    the pipeline). Fails closed: an API error or an unparsable response is
+    treated as unsupported with zero confidence, so a judge outage can never
+    manufacture grounding evidence that doesn't exist.
+    """
+
+    def __init__(
+        self, client: anthropic.Anthropic | None = None, model: str = DEFAULT_JUDGE_MODEL
+    ) -> None:
+        self._client = client or anthropic.Anthropic()
+        self._model = model
+
+    def judge(self, claim: str, sources: list[SourceDocument]) -> JudgeVerdict:
+        source_block = "\n\n".join(f"[{doc.id}]\n{doc.text}" for doc in sources)
+        try:
+            response = self._client.messages.create(
+                model=self._model,
+                max_tokens=200,
+                system=_JUDGE_SYSTEM_PROMPT,
+                messages=[
+                    {"role": "user", "content": f"CLAIM: {claim}\n\nSOURCES:\n{source_block}"}
+                ],
+            )
+        except anthropic.APIError as exc:
+            return JudgeVerdict(
+                supported=False, confidence=0.0, reason=f"judge unavailable: {exc}"
+            )
+        text = "".join(
+            block.text for block in response.content if isinstance(block, TextBlock)
+        )
+        return _parse_judge_response(text)
+
+
+def _parse_judge_response(text: str) -> JudgeVerdict:
+    try:
+        data: dict[str, Any] = json.loads(text.strip())
+        return JudgeVerdict(
+            supported=bool(data["supported"]),
+            confidence=max(0.0, min(1.0, float(data["confidence"]))),
+            reason=str(data["reason"])[:300],
+        )
+    except (json.JSONDecodeError, KeyError, TypeError, ValueError):
+        return JudgeVerdict(
+            supported=False, confidence=0.0, reason="judge response unparsable"
         )
 
 

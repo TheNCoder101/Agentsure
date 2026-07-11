@@ -1,6 +1,8 @@
+import os
 import re
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from functools import lru_cache
 from pathlib import Path
 from typing import Annotated
 
@@ -12,7 +14,7 @@ from app.accounts import store
 from app.models import Receipt, ReceiptVerifyResponse, VerifyRequest, VerifyResponse
 from app.receipt.build import build_receipt
 from app.receipt.sign import SigningKeyMissingError, verify_signature
-from app.verify.judge import HeuristicJudge, JudgeClient
+from app.verify.judge import AnthropicJudge, HeuristicJudge, JudgeClient
 from app.verify.pipeline import run_verification
 
 _LANDING_PAGE = Path(__file__).parent / "web" / "landing.html"
@@ -28,7 +30,16 @@ async def _lifespan(_: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(title="Verification Gate", lifespan=_lifespan)
 
 
+@lru_cache(maxsize=1)
+def _anthropic_judge() -> AnthropicJudge:
+    return AnthropicJudge()
+
+
 def get_judge() -> JudgeClient:
+    # Real judge in any environment with credentials configured; heuristic
+    # stand-in only as a fallback (e.g. local dev without an API key).
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        return _anthropic_judge()
     return HeuristicJudge()
 
 
