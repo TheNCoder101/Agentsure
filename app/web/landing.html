@@ -3,129 +3,165 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Agentsure — Signed proof your AI told the truth</title>
-<meta name="description" content="An inline verification gate for AI agents. Every high-stakes output gets a verdict and a cryptographically signed audit receipt.">
+<title>Agentsure — Proof, not promises.</title>
+<meta name="description" content="A verification gate for AI agents. Every claim checked against your evidence, sealed into a signed, tamper-evident audit receipt.">
 <style>
+:root{
+  --paper:#eceee7; --ink:#14171a; --ink-2:#4b5049; --line:#d7dbce;
+  --accent:#2f6b52; --accent-ink:#234f3d; --accent-soft:#dce7de;
+  --risk:#b9482f; --risk-soft:#f2ddd3; --partial:#8a6d1d; --partial-soft:#efe4c9;
+  --card:#f5f6f0; --shadow: 0 20px 46px -28px rgba(20,23,26,.35);
+  --font-display:'Big Caslon','Didot',Cambria,Constantia,'Palatino Linotype',Palatino,Georgia,serif;
+  --font-body:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  --font-mono:'IBM Plex Mono','SF Mono','Cascadia Code',Consolas,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){
   :root{
-    --ink:#14171b; --ink-2:#3c434b; --muted:#6b7280; --paper:#faf8f4; --panel:#111417;
-    --line:#e6e2d8; --line-dark:#2a2f35; --accent:#0e6b45; --accent-ink:#0a5636;
-    --alert:#a33111; --card:#ffffff; --mono:ui-monospace,'SF Mono','Cascadia Code',Menlo,Consolas,monospace;
-    --serif:'Iowan Old Style',Palatino,'Palatino Linotype',Georgia,serif;
-    --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,Roboto,Helvetica,Arial,sans-serif;
+    --paper:#15171a; --ink:#eceee7; --ink-2:#9a9f92; --line:#2b2f28;
+    --accent:#5aa584; --accent-ink:#7fc0a2; --accent-soft:#1e2e27;
+    --risk:#d9705a; --risk-soft:#33201a; --partial:#c9a24a; --partial-soft:#302a17;
+    --card:#1b1e1c; --shadow:0 20px 46px -28px rgba(0,0,0,.6);
   }
-  *{margin:0;padding:0;box-sizing:border-box}
-  html{scroll-behavior:smooth}
-  body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
-  a{color:inherit}
-  .wrap{max-width:1120px;margin:0 auto;padding:0 32px}
-  .overline{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);font-weight:600}
-  .rule{border:0;border-top:1px solid var(--line)}
+}
+:root[data-theme="dark"]{
+  --paper:#15171a; --ink:#eceee7; --ink-2:#9a9f92; --line:#2b2f28;
+  --accent:#5aa584; --accent-ink:#7fc0a2; --accent-soft:#1e2e27;
+  --risk:#d9705a; --risk-soft:#33201a; --partial:#c9a24a; --partial-soft:#302a17;
+  --card:#1b1e1c; --shadow:0 20px 46px -28px rgba(0,0,0,.6);
+}
+:root[data-theme="light"]{
+  --paper:#eceee7; --ink:#14171a; --ink-2:#4b5049; --line:#d7dbce;
+  --accent:#2f6b52; --accent-ink:#234f3d; --accent-soft:#dce7de;
+  --risk:#b9482f; --risk-soft:#f2ddd3; --partial:#8a6d1d; --partial-soft:#efe4c9;
+  --card:#f5f6f0; --shadow:0 20px 46px -28px rgba(20,23,26,.35);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:var(--font-body);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:var(--font-display);font-weight:600;letter-spacing:-.01em;text-wrap:balance}
+a{color:inherit}
+button,select,input,textarea{font-family:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+::selection{background:var(--accent);color:var(--paper)}
+.wrap{max-width:1160px;margin:0 auto;padding:0 32px}
+@media (max-width:760px){.wrap{padding:0 20px}}
 
-  /* ── nav ─────────────────────────────── */
-  nav{border-bottom:1px solid var(--line);background:rgba(250,248,244,.92);backdrop-filter:blur(8px);position:sticky;top:0;z-index:50}
-  .nav-in{display:flex;align-items:center;justify-content:space-between;height:64px}
-  .brand{font-family:var(--serif);font-size:21px;font-weight:600;letter-spacing:-.01em;text-decoration:none}
-  .brand em{font-style:normal;color:var(--accent)}
-  .nav-links{display:flex;gap:28px;align-items:center;font-size:14px}
-  .nav-links a{text-decoration:none;color:var(--ink-2)}
-  .nav-links a:hover{color:var(--ink)}
-  .btn{display:inline-block;padding:10px 20px;border-radius:3px;font-size:14px;font-weight:600;text-decoration:none;cursor:pointer;border:1px solid transparent;transition:background .15s}
-  .btn-primary{background:var(--ink);color:var(--paper)}
-  .btn-primary:hover{background:#000}
-  .btn-accent{background:var(--accent);color:#fff}
-  .btn-accent:hover{background:var(--accent-ink)}
-  .btn-ghost{border-color:var(--ink);color:var(--ink);background:transparent}
-  .btn-ghost:hover{background:var(--ink);color:var(--paper)}
+.doc-tag{font-family:var(--font-mono);font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-2);display:flex;gap:8px;align-items:center;margin-bottom:22px}
+.doc-tag .sep{opacity:.5}
 
-  /* ── hero ─────────────────────────────── */
-  .hero{padding:96px 0 88px;display:grid;grid-template-columns:1.05fr .95fr;gap:64px;align-items:center}
-  h1{font-family:var(--serif);font-size:56px;line-height:1.08;font-weight:600;letter-spacing:-.02em;margin:18px 0 22px}
-  .hero p.lede{font-size:19px;color:var(--ink-2);max-width:34em;margin-bottom:34px}
-  .hero-ctas{display:flex;gap:14px;align-items:center}
-  .hero-note{font-size:13px;color:var(--muted);margin-top:14px}
+/* ── nav ─────────────────────────────── */
+nav{border-bottom:1px solid var(--line);background:color-mix(in srgb, var(--paper) 92%, transparent);backdrop-filter:blur(8px);position:sticky;top:0;z-index:50}
+.nav-in{display:flex;align-items:center;justify-content:space-between;height:64px}
+.brand{font-family:var(--font-display);font-size:21px;font-weight:600;letter-spacing:-.01em;text-decoration:none}
+.brand em{font-style:normal;color:var(--accent)}
+.nav-links{display:flex;gap:28px;align-items:center;font-size:14px}
+.nav-links a{text-decoration:none;color:var(--ink-2)}
+.nav-links a:hover{color:var(--ink)}
+.btn{display:inline-block;padding:11px 22px;border-radius:2px;font-size:14px;font-weight:600;text-decoration:none;cursor:pointer;border:1px solid transparent;transition:background .15s,color .15s}
+.btn-primary{background:var(--ink);color:var(--paper)}
+.btn-primary:hover{background:var(--accent-ink)}
+.btn-accent{background:var(--accent);color:#fff}
+.btn-accent:hover{background:var(--accent-ink)}
+.btn-ghost{border-color:var(--ink);color:var(--ink);background:transparent}
+.btn-ghost:hover{background:var(--ink);color:var(--paper)}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
 
-  /* receipt artifact */
-  .receipt{background:var(--panel);color:#d7dce2;border-radius:6px;padding:28px;font-family:var(--mono);font-size:12.5px;line-height:1.75;box-shadow:0 24px 60px -24px rgba(20,23,27,.45);position:relative}
-  .receipt .r-head{display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px dashed var(--line-dark);padding-bottom:12px;margin-bottom:14px}
-  .receipt .r-title{color:#fff;font-weight:700;letter-spacing:.08em;font-size:11px}
-  .receipt .r-row{display:flex;justify-content:space-between;gap:16px}
-  .receipt .r-k{color:#7d8590}
-  .receipt .r-v{color:#e8edf2;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .receipt .r-sig{border-top:1px dashed var(--line-dark);margin-top:14px;padding-top:12px;word-break:break-all;color:#9db8a8}
-  .stamp{position:absolute;top:-13px;right:22px;transform:rotate(4deg);background:var(--accent);color:#fff;font-family:var(--sans);font-size:11px;font-weight:700;letter-spacing:.14em;padding:7px 14px;border-radius:2px;box-shadow:0 6px 16px -6px rgba(14,107,69,.6)}
-  .r-verdict{color:#5fd39a;font-weight:700}
+section{padding:96px 0;scroll-margin-top:80px}
+@media (max-width:760px){section{padding:64px 0}}
+h2{font-size:clamp(28px,4vw,42px);margin-bottom:14px}
+p.lede{font-size:18.5px;color:var(--ink-2);max-width:52ch}
 
-  /* ── trust strip ─────────────────────── */
-  .strip{border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:22px 0}
-  .strip-in{display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;font-size:13px;color:var(--ink-2)}
-  .strip-in span b{color:var(--ink)}
+/* ── hero / live demo ───────────────────── */
+#s-hero{padding-top:64px}
+.hero-grid{display:grid;grid-template-columns:1fr;gap:16px}
+.hero-top{max-width:640px;margin-bottom:44px}
+.hero-top h1{font-size:clamp(42px,6vw,68px);line-height:1.03;margin:10px 0 18px}
 
-  /* ── sections ─────────────────────────── */
-  section{padding:88px 0}
-  h2{font-family:var(--serif);font-size:36px;font-weight:600;letter-spacing:-.015em;margin:14px 0 12px}
-  .section-lede{color:var(--ink-2);max-width:44em;margin-bottom:48px}
-  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line)}
-  .step{background:var(--card);padding:34px 30px}
-  .step .n{font-family:var(--serif);font-size:15px;color:var(--accent);font-weight:700}
-  .step h3{font-size:17px;margin:12px 0 8px}
-  .step p{font-size:14.5px;color:var(--ink-2)}
-  .codeblock{background:var(--panel);border-radius:6px;padding:26px 28px;font-family:var(--mono);font-size:13px;line-height:1.7;color:#d7dce2;overflow-x:auto;margin-top:40px}
-  .codeblock .c{color:#7d8590}.codeblock .g{color:#5fd39a}.codeblock .y{color:#e3c78a}
+.demo{
+  border:1px solid var(--line);border-radius:3px;background:var(--card);
+  display:grid;grid-template-columns:1.1fr .9fr;box-shadow:var(--shadow);
+}
+@media (max-width:880px){.demo{grid-template-columns:1fr}}
+.demo-form{padding:34px 36px;border-right:1px solid var(--line)}
+@media (max-width:880px){.demo-form{border-right:0;border-bottom:1px solid var(--line)}}
+.field{margin-bottom:18px}
+label{display:block;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2);margin-bottom:7px}
+input[type=text],input[type=email],textarea,select{
+  width:100%;padding:11px 13px;border:1px solid var(--line);border-radius:2px;
+  font-size:14px;font-family:inherit;background:var(--paper);color:var(--ink);
+}
+textarea{font-family:var(--font-mono);font-size:12.5px;line-height:1.6;resize:vertical}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.hint{font-size:12.5px;color:var(--ink-2);margin-top:6px}
 
-  /* ── pricing ─────────────────────────── */
-  #pricing{background:#f3f0e9;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
-  .plans{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;margin-top:8px}
-  .plan{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:30px 26px;display:flex;flex-direction:column}
-  .plan.featured{border-color:var(--ink);box-shadow:0 16px 40px -20px rgba(20,23,27,.35);position:relative}
-  .plan .tag{position:absolute;top:-11px;left:26px;background:var(--ink);color:var(--paper);font-size:10px;font-weight:700;letter-spacing:.14em;padding:4px 10px;border-radius:2px;text-transform:uppercase}
-  .plan h3{font-size:15px;letter-spacing:.02em}
-  .price{font-family:var(--serif);font-size:38px;font-weight:600;margin:14px 0 2px}
-  .price small{font-family:var(--sans);font-size:13px;color:var(--muted);font-weight:400}
-  .per{font-size:12.5px;color:var(--muted);margin-bottom:18px}
-  .plan ul{list-style:none;font-size:13.5px;color:var(--ink-2);flex:1;margin-bottom:22px}
-  .plan li{padding:7px 0;border-bottom:1px solid var(--line)}
-  .plan li:last-child{border-bottom:0}
-  .plan .btn{text-align:center}
-  .ent{margin-top:26px;border:1px solid var(--line);border-radius:6px;background:var(--card);padding:22px 28px;display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap;font-size:14px}
+.demo-result{padding:34px 36px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;text-align:center}
+.seal{width:118px;height:118px;border-radius:50%;position:relative;box-shadow:inset 0 3px 6px rgba(0,0,0,.25), inset 0 -4px 9px rgba(0,0,0,.1), 0 12px 26px -14px rgba(0,0,0,.45);transition:background .5s ease}
+.seal[data-state="idle"]{background:radial-gradient(circle at 34% 28%, color-mix(in srgb, var(--ink-2) 55%, white 15%), var(--ink-2) 75%)}
+.seal[data-state="ok"]{background:radial-gradient(circle at 34% 28%, color-mix(in srgb, var(--accent) 70%, white 20%), var(--accent) 72%)}
+.seal[data-state="bad"]{background:radial-gradient(circle at 34% 28%, color-mix(in srgb, var(--risk) 70%, white 15%), var(--risk) 72%)}
+.seal[data-state="partial"]{background:radial-gradient(circle at 34% 28%, color-mix(in srgb, var(--partial) 70%, white 15%), var(--partial) 72%)}
+.seal svg{position:absolute;inset:0;width:100%;height:100%;opacity:0;transition:opacity .3s ease .15s}
+.seal[data-state="idle"] .mark-idle,
+.seal[data-state="ok"] .mark-ok,
+.seal[data-state="bad"] .mark-bad,
+.seal[data-state="partial"] .mark-partial{opacity:1}
+@media (prefers-reduced-motion: reduce){ .seal, .seal svg{transition:none} }
+.seal-label{font-family:var(--font-mono);font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;font-weight:600}
+.demo-verdict{font-size:15px}
+.demo-verdict b{font-family:var(--font-mono)}
+.demo-receipt{width:100%;text-align:left;font-family:var(--font-mono);font-size:11.5px;background:var(--paper);border:1px solid var(--line);border-radius:2px;padding:14px 16px;line-height:1.7}
+.demo-receipt .r-row{display:flex;justify-content:space-between;gap:10px}
+.demo-receipt .r-k{color:var(--ink-2)}
+.demo-receipt .r-v{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.demo-key{font-family:var(--font-mono);font-size:12px;background:var(--accent-soft);border:1px solid var(--line);border-radius:2px;padding:10px 14px;width:100%;text-align:left}
+.demo-key .k-val{word-break:break-all;display:block;font-weight:600}
+.demo-key .k-note{display:block;margin-top:4px;color:var(--ink-2);word-break:normal}
+.error-line{color:var(--risk);font-size:13px;display:none}
+.error-line.show{display:block}
 
-  /* ── console ─────────────────────────── */
-  #console{padding-bottom:110px}
-  .console-shell{border:1px solid var(--line);border-radius:8px;background:var(--card);overflow:hidden;box-shadow:0 20px 50px -30px rgba(20,23,27,.3)}
-  .tabs{display:flex;border-bottom:1px solid var(--line);background:#f6f4ee}
-  .tab{padding:15px 24px;font-size:13.5px;font-weight:600;color:var(--muted);cursor:pointer;border:0;background:none;border-bottom:2px solid transparent;font-family:var(--sans)}
-  .tab:hover{color:var(--ink)}
-  .tab.active{color:var(--ink);border-bottom-color:var(--accent);background:var(--card)}
-  .tabpane{display:none;padding:38px 40px}
-  .tabpane.active{display:block}
-  .field{margin-bottom:18px;max-width:480px}
-  label{display:block;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2);margin-bottom:7px}
-  input[type=text],input[type=email],textarea,select{width:100%;padding:11px 13px;border:1px solid #cfcaba;border-radius:3px;font-size:14px;font-family:var(--sans);background:#fff;color:var(--ink)}
-  textarea{font-family:var(--mono);font-size:12.5px;line-height:1.6}
-  input:focus,textarea:focus,select:focus{outline:2px solid var(--accent);outline-offset:-1px;border-color:var(--accent)}
-  .hint{font-size:12.5px;color:var(--muted);margin-top:6px}
-  .result{margin-top:22px;font-family:var(--mono);font-size:12.5px;background:#f6f4ee;border:1px solid var(--line);border-radius:4px;padding:18px;white-space:pre-wrap;word-break:break-all;display:none}
-  .result.show{display:block}
-  .result.ok{border-left:3px solid var(--accent)}
-  .result.err{border-left:3px solid var(--alert);color:var(--alert)}
-  .keychip{display:flex;gap:10px;align-items:center;margin-top:20px}
-  .meter{height:8px;background:#e8e4d9;border-radius:4px;overflow:hidden;max-width:480px;margin-top:10px}
-  .meter i{display:block;height:100%;background:var(--accent);width:0%}
-  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:28px}
-  .demo-verdict{font-family:var(--sans);font-size:14px;margin-top:20px;display:none}
-  .demo-verdict.show{display:block}
-  .v-badge{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:5px 12px;border-radius:2px;color:#fff}
-  .v-supported{background:var(--accent)} .v-unsupported{background:var(--alert)} .v-partially_supported{background:#8a6d1d}
+/* ── how it works / trust ──────────────── */
+.steps{display:flex;flex-direction:column;max-width:680px}
+.step{display:grid;grid-template-columns:52px 1fr;gap:20px;padding:22px 0;border-top:1px solid var(--line)}
+.step:last-child{border-bottom:1px solid var(--line)}
+.step .tag{font-family:var(--font-mono);font-size:13px;color:var(--accent);font-weight:700;padding-top:2px}
+.step h3{font-size:18px;font-family:var(--font-body);font-weight:600;margin-bottom:4px}
+.step p{font-size:14.5px;color:var(--ink-2);max-width:52ch}
 
-  footer{border-top:1px solid var(--line);padding:40px 0 60px;font-size:13px;color:var(--muted)}
-  .foot-in{display:flex;justify-content:space-between;flex-wrap:wrap;gap:16px}
+.trust-list{max-width:680px}
+.trust-row{padding:18px 0;border-top:1px solid var(--line);font-size:15px}
+.trust-row:last-child{border-bottom:1px solid var(--line)}
+.trust-row b{font-family:var(--font-display);font-weight:600;font-size:16.5px}
+.trust-row span{color:var(--ink-2);display:block;margin-top:3px;font-size:14px}
 
-  @media (max-width:960px){
-    .hero{grid-template-columns:1fr;padding:64px 0}
-    h1{font-size:40px}
-    .steps,.plans,.grid-2{grid-template-columns:1fr}
-    .tabpane{padding:26px 20px}
-    .wrap{padding:0 20px}
-  }
+/* ── pricing ────────────────────────────── */
+.table-wrap{overflow-x:auto}
+table.plans{border-collapse:collapse;width:100%;min-width:640px;font-size:14.5px}
+table.plans th{text-align:left;font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-2);font-weight:600;padding:0 18px 12px 0;border-bottom:1px solid var(--ink)}
+table.plans td{padding:18px 18px 18px 0;border-bottom:1px solid var(--line);vertical-align:top}
+table.plans tr:last-child td{border-bottom:1px solid var(--ink)}
+table.plans td.plan-name{font-family:var(--font-display);font-size:17.5px}
+table.plans td.price{font-family:var(--font-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+table.plans td.notes{color:var(--ink-2);font-size:13.5px;max-width:32ch}
+table.plans td.cta a{font-size:13px}
+.credit-note{margin-top:24px;font-size:14px;color:var(--ink-2);max-width:64ch;border-left:2px solid var(--accent);padding-left:16px}
+.ent-row{margin-top:22px;border:1px solid var(--line);border-radius:2px;padding:20px 26px;display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap;font-size:14px}
+
+/* ── console ────────────────────────────── */
+.console-shell{border:1px solid var(--line);border-radius:3px;background:var(--card);box-shadow:var(--shadow);overflow:hidden}
+.tabs{display:flex;border-bottom:1px solid var(--line);gap:2px;padding:0 8px}
+.tab{padding:16px 18px;font-size:13.5px;font-weight:600;color:var(--ink-2);cursor:pointer;border:0;background:none;border-bottom:2px solid transparent}
+.tab:hover{color:var(--ink)}
+.tab.active{color:var(--ink);border-bottom-color:var(--accent)}
+.tabpane{display:none;padding:32px 36px}
+.tabpane.active{display:block}
+.result{margin-top:18px;font-family:var(--font-mono);font-size:12px;background:var(--paper);border:1px solid var(--line);border-radius:2px;padding:14px 16px;white-space:pre-wrap;word-break:break-all;display:none}
+.result.show{display:block}
+.result.ok{border-left:3px solid var(--accent)}
+.result.err{border-left:3px solid var(--risk);color:var(--risk)}
+.meter{height:7px;background:var(--line);border-radius:4px;overflow:hidden;max-width:420px;margin-top:10px}
+.meter i{display:block;height:100%;background:var(--accent);width:0%}
+
+footer{border-top:1px solid var(--line);padding:44px 0 56px;font-size:13px;color:var(--ink-2)}
+.foot-in{display:flex;justify-content:space-between;flex-wrap:wrap;gap:16px}
 </style>
 </head>
 <body>
@@ -134,182 +170,126 @@
   <div class="wrap nav-in">
     <a class="brand" href="/">Agent<em>sure</em></a>
     <div class="nav-links">
-      <a href="#how">How it works</a>
-      <a href="#pricing">Pricing</a>
+      <a href="#s-how">How it works</a>
+      <a href="#s-pricing">Pricing</a>
       <a href="/docs">API reference</a>
-      <a class="btn btn-primary" href="#console">Get your API key</a>
+      <a class="btn btn-primary" href="#s-hero">Try it free</a>
     </div>
   </div>
 </nav>
 
-<header class="wrap hero">
-  <div>
-    <span class="overline">Verification gate for AI agents</span>
+<section id="s-hero" class="wrap">
+  <div class="hero-top">
+    <span class="doc-tag">AG-01 <span class="sep">·</span> Try it now</span>
     <h1>Proof, not promises.</h1>
-    <p class="lede">Your agent is about to act on something it wrote. Agentsure checks that output
-    against your evidence and returns a verdict — plus a cryptographically signed audit receipt
-    your compliance team can hand to a regulator.</p>
-    <div class="hero-ctas">
-      <a class="btn btn-accent" href="#console">Create a free API key</a>
-      <a class="btn btn-ghost" href="#how">See how it works</a>
+    <p class="lede">Every claim your agent writes, checked against your evidence, and sealed into a signature that breaks the moment anyone alters it. Run a real check below — free.</p>
+  </div>
+
+  <div class="demo">
+    <form class="demo-form" id="demo-form">
+      <div class="field" id="email-field">
+        <label for="d-email">Work email</label>
+        <input type="email" id="d-email" placeholder="you@company.com" autocomplete="email" required>
+        <p class="hint">We'll issue a free key — 1,000 credits/month, no card.</p>
+      </div>
+      <div class="field">
+        <label for="d-claim">Claim to verify</label>
+        <textarea id="d-claim" rows="2" required>Revenue for the third quarter increased 12% year over year to $4.1M.</textarea>
+      </div>
+      <div class="field">
+        <label for="d-evidence">Source evidence</label>
+        <textarea id="d-evidence" rows="3" required>Revenue for the third quarter increased 12% year over year to $4.1M, driven by enterprise renewals.</textarea>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label for="d-rigor">Rigor level</label>
+          <select id="d-rigor">
+            <option value="fast">fast — 1 credit</option>
+            <option value="standard" selected>standard — 2 credits</option>
+            <option value="strict">strict — 3 credits</option>
+          </select>
+        </div>
+        <div class="field" style="display:flex;align-items:flex-end">
+          <button type="submit" class="btn btn-accent" id="d-submit" style="width:100%">Run verification</button>
+        </div>
+      </div>
+      <p class="error-line" id="d-error"></p>
+    </form>
+    <div class="demo-result">
+      <div class="seal" data-state="idle" id="seal" aria-hidden="true">
+        <svg class="mark-idle" viewBox="0 0 118 118"><polyline points="46,16 57,46 41,57 70,71 54,102" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/></svg>
+        <svg class="mark-ok" viewBox="0 0 118 118"><polyline points="37,61 52,75 82,41" fill="none" stroke="#fff" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/></svg>
+        <svg class="mark-bad" viewBox="0 0 118 118"><path d="M40,40 L78,78 M78,40 L40,78" stroke="#fff" stroke-width="6" stroke-linecap="round"/></svg>
+        <svg class="mark-partial" viewBox="0 0 118 118"><polyline points="37,61 52,75 82,41" fill="none" stroke="#fff" stroke-width="6" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="10 8"/></svg>
+      </div>
+      <span class="seal-label" id="seal-label" style="color:var(--ink-2)">Awaiting check</span>
+      <div class="demo-verdict" id="demo-verdict" style="display:none"></div>
+      <div class="demo-receipt" id="demo-receipt" style="display:none"></div>
+      <div class="demo-key" id="demo-key" style="display:none"></div>
     </div>
-    <p class="hero-note">1,000 free credits every month. No credit card. One POST request to integrate.</p>
   </div>
-  <div class="receipt" aria-label="Example audit receipt">
-    <span class="stamp">Signature valid</span>
-    <div class="r-head"><span class="r-title">AUDIT RECEIPT</span><span>engine 0.1.0</span></div>
-    <div class="r-row"><span class="r-k">receipt_id</span><span class="r-v">c1f7a2e4-9b3d-4e8a-a1c2-7f5d90b4e6aa</span></div>
-    <div class="r-row"><span class="r-k">issued_at</span><span class="r-v">2026-07-07T09:14:02Z</span></div>
-    <div class="r-row"><span class="r-k">verdict</span><span class="r-v r-verdict">supported</span></div>
-    <div class="r-row"><span class="r-k">rigor_level</span><span class="r-v">strict</span></div>
-    <div class="r-row"><span class="r-k">output_sha256</span><span class="r-v">9f86d081884c7d65…</span></div>
-    <div class="r-row"><span class="r-k">sources_sha256</span><span class="r-v">2c26b46b68ffc68f…, fcde2b2edba56bf4…</span></div>
-    <div class="r-sig">signature&nbsp;&nbsp;hmac-sha256:7d38e2f1c04a9b56d8e3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1</div>
-  </div>
-</header>
+</section>
 
-<div class="strip">
-  <div class="wrap strip-in">
-    <span><b>HMAC-SHA256</b> signed receipts</span>
-    <span><b>Tamper-evident</b> — any altered field fails verification</span>
-    <span><b>Rigor-tiered</b> — pay for depth only when it matters</span>
-    <span><b>Deterministic</b> canonical serialization, reproducible signatures</span>
-  </div>
-</div>
-
-<section id="how" class="wrap">
-  <span class="overline">How it works</span>
-  <h2>One call between your agent and the consequences.</h2>
-  <p class="section-lede">Before your agent commits a high-stakes output — a filing, a diagnosis
-  summary, a client email with numbers in it — it calls the gate with the output and the source
-  documents it should be grounded in.</p>
+<section id="s-how" class="wrap">
+  <span class="doc-tag">AG-02 <span class="sep">·</span> How it works</span>
+  <h2>Three steps between a claim and a consequence.</h2>
   <div class="steps">
     <div class="step">
-      <span class="n">01</span>
-      <h3>Decompose &amp; check</h3>
-      <p>The output is split into atomic factual claims. Every claim is checked against your
-      evidence: semantic entailment, number mismatches, fabricated-citation patterns.</p>
+      <span class="tag">01</span>
+      <div><h3>Check every claim against the evidence</h3><p>The output is broken into individual factual statements and matched against the source documents it should be grounded in.</p></div>
     </div>
     <div class="step">
-      <span class="n">02</span>
-      <h3>Escalate only what's flagged</h3>
-      <p>On <code>standard</code> and <code>strict</code> rigor, only flagged claims go to the
-      LLM judge — never the ones that already passed. Depth where it matters, cost control everywhere else.</p>
+      <span class="tag">02</span>
+      <div><h3>Escalate only what's uncertain</h3><p>Claims that already check out move on. Only the ones in doubt get a deeper review — cost stays proportional to risk, never the other way round.</p></div>
     </div>
     <div class="step">
-      <span class="n">03</span>
-      <h3>Verdict + signed receipt</h3>
-      <p>You get <code>supported</code>, <code>unsupported</code> or <code>partially_supported</code>,
-      per-claim evidence, and an HMAC-signed receipt. Anyone can re-verify it at
-      <code>POST /receipt/verify</code> — tamper with one field and it fails.</p>
-    </div>
-  </div>
-  <div class="codeblock"><span class="c"># Verify an output against evidence — one request</span>
-curl -s https://api.agentsure.dev/verify \
-  -H <span class="y">"X-API-Key: vg-••••••••••••"</span> -H <span class="y">"Content-Type: application/json"</span> \
-  -d <span class="y">'{
-    "output": "Q3 revenue rose 12% to $4.1M.",
-    "source_documents": [{"id": "10q-2026", "text": "…revenue increased 12% to $4.1M…"}],
-    "rigor_level": "standard"
-  }'</span>
-
-<span class="c"># →</span> { <span class="g">"verdict": "supported"</span>, "confidence": 0.97, "receipt": { "signature": "…" } }</div>
-</section>
-
-<section id="pricing">
-  <div class="wrap">
-    <span class="overline">Pricing</span>
-    <h2>Start free. Pay for rigor, not seats.</h2>
-    <p class="section-lede">Every plan uses credits: a <code>fast</code> verification costs 1 credit,
-    <code>standard</code> costs 2, <code>strict</code> costs 3. Credits reset monthly.</p>
-    <div class="plans">
-      <div class="plan">
-        <h3>Free</h3>
-        <div class="price">$0</div>
-        <div class="per">forever</div>
-        <ul>
-          <li>1,000 credits / month</li>
-          <li>All three rigor levels</li>
-          <li>Signed audit receipts</li>
-          <li>No credit card required</li>
-        </ul>
-        <a class="btn btn-ghost" href="#console">Get started</a>
-      </div>
-      <div class="plan">
-        <h3>Starter</h3>
-        <div class="price">$30<small>/mo</small></div>
-        <div class="per">4,000 credits · $0.0075/credit</div>
-        <ul>
-          <li>Everything in Free</li>
-          <li>Higher rate limits</li>
-          <li>Email support</li>
-          <li>Usage analytics</li>
-        </ul>
-        <a class="btn btn-ghost" href="#console" data-plan="starter">Choose Starter</a>
-      </div>
-      <div class="plan featured">
-        <span class="tag">Most popular</span>
-        <h3>Growth</h3>
-        <div class="price">$100<small>/mo</small></div>
-        <div class="per">15,000 credits · $0.0067/credit</div>
-        <ul>
-          <li>Everything in Starter</li>
-          <li>Priority support</li>
-          <li>Receipt retention &amp; export</li>
-          <li>Overage at pay-as-you-go rate</li>
-        </ul>
-        <a class="btn btn-accent" href="#console" data-plan="growth">Choose Growth</a>
-      </div>
-      <div class="plan">
-        <h3>Pay-as-you-go</h3>
-        <div class="price">$0.008<small>/credit</small></div>
-        <div class="per">no monthly commitment</div>
-        <ul>
-          <li>Uncapped volume</li>
-          <li>Billed monthly in arrears</li>
-          <li>Ideal for spiky workloads</li>
-          <li>Switch plans any time</li>
-        </ul>
-        <a class="btn btn-ghost" href="#console" data-plan="payg">Choose PAYG</a>
-      </div>
-    </div>
-    <div class="ent">
-      <div><b>Enterprise</b> — custom volume, SLAs, private deployment, SSO, and a named compliance contact.</div>
-      <a class="btn btn-primary" href="mailto:sales@agentsure.dev">Talk to sales</a>
+      <span class="tag">03</span>
+      <div><h3>Seal the verdict into a receipt</h3><p>A tamper-proof, cryptographically signed record — the thing a compliance officer can hand to a regulator.</p></div>
     </div>
   </div>
 </section>
 
-<section id="console" class="wrap">
-  <span class="overline">Developer console</span>
-  <h2>Everything works right here.</h2>
-  <p class="section-lede">Create a key, watch your usage, manage your subscription, and run a live
-  verification — against this very API.</p>
+<section id="s-trust" class="wrap">
+  <span class="doc-tag">AG-03 <span class="sep">·</span> Why it holds up</span>
+  <h2>The receipt is the product.</h2>
+  <div class="trust-list">
+    <div class="trust-row"><b>HMAC-SHA256 signed.</b><span>Every receipt carries a signature over its canonical body — reproducible, never guessable.</span></div>
+    <div class="trust-row"><b>Tamper-evident.</b><span>Alter any field and <code>POST /receipt/verify</code> flips to <code>false</code>. No exceptions.</span></div>
+    <div class="trust-row"><b>Rigor-tiered.</b><span><code>fast</code>, <code>standard</code>, <code>strict</code> — you pay for depth only when a claim is actually in doubt.</span></div>
+    <div class="trust-row"><b>Deterministic.</b><span>Sorted, whitespace-free serialization — the same receipt always signs the same way, everywhere.</span></div>
+  </div>
+</section>
 
+<section id="s-pricing" class="wrap">
+  <span class="doc-tag">AG-04 <span class="sep">·</span> Pricing</span>
+  <h2>Start free. Pay for rigor, not seats.</h2>
+  <p class="lede" style="margin-bottom:32px">Every plan runs on credits: <code>fast</code> = 1, <code>standard</code> = 2, <code>strict</code> = 3 per check. Credits reset monthly.</p>
+  <div class="table-wrap">
+    <table class="plans">
+      <thead><tr><th>Plan</th><th>Price</th><th>Credits / mo</th><th>For</th><th></th></tr></thead>
+      <tbody>
+        <tr><td class="plan-name">Free</td><td class="price">$0</td><td class="price">1,000</td><td class="notes">No card, all three rigor levels</td><td class="cta"><a href="#s-hero">Get started →</a></td></tr>
+        <tr><td class="plan-name">Starter</td><td class="price">$30/mo</td><td class="price">4,000</td><td class="notes">Small teams in production</td><td class="cta"><a href="#s-console" data-plan="starter">Choose →</a></td></tr>
+        <tr><td class="plan-name">Growth</td><td class="price">$100/mo</td><td class="price">15,000</td><td class="notes">Scaling usage, priority support</td><td class="cta"><a href="#s-console" data-plan="growth">Choose →</a></td></tr>
+        <tr><td class="plan-name">Pay-as-you-go</td><td class="price">$0.008/credit</td><td class="price">uncapped</td><td class="notes">Spiky or unpredictable volume</td><td class="cta"><a href="#s-console" data-plan="payg">Choose →</a></td></tr>
+        <tr><td class="plan-name">Enterprise</td><td class="price">Custom</td><td class="price">Custom</td><td class="notes">SLAs, private deployment, SSO</td><td class="cta"><a href="mailto:sales@agentsure.dev">Talk to sales →</a></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="s-console" class="wrap">
+  <span class="doc-tag">AG-05 <span class="sep">·</span> Manage your key</span>
+  <h2>Already have a key?</h2>
+  <p class="lede" style="margin-bottom:28px">Check usage, change plans, or run another verification with your own text.</p>
   <div class="console-shell">
     <div class="tabs" role="tablist">
-      <button class="tab active" data-pane="pane-key">Create API key</button>
-      <button class="tab" data-pane="pane-usage">Usage</button>
+      <button class="tab active" data-pane="pane-usage">Usage</button>
       <button class="tab" data-pane="pane-sub">Subscription</button>
-      <button class="tab" data-pane="pane-demo">Live demo</button>
+      <button class="tab" data-pane="pane-verify">Custom verification</button>
     </div>
-
-    <div id="pane-key" class="tabpane active">
-      <div class="field">
-        <label for="email">Work email</label>
-        <input type="email" id="email" placeholder="you@company.com" autocomplete="email">
-        <p class="hint">Your key starts on the Free plan — 1,000 credits/month, no card required.</p>
-      </div>
-      <button class="btn btn-accent" id="btn-create">Create my API key</button>
-      <div class="result" id="key-result"></div>
-      <div class="keychip" id="key-chip" style="display:none">
-        <button class="btn btn-ghost" id="btn-copy">Copy key</button>
-        <span class="hint">Shown once. We store only a hash — if you lose it, create a new one.</span>
-      </div>
-    </div>
-
-    <div id="pane-usage" class="tabpane">
-      <div class="field">
+    <div id="pane-usage" class="tabpane active">
+      <div class="field" style="max-width:420px">
         <label for="usage-key">API key</label>
         <input type="text" id="usage-key" placeholder="vg-…" spellcheck="false">
       </div>
@@ -317,65 +297,34 @@ curl -s https://api.agentsure.dev/verify \
       <div class="result" id="usage-result"></div>
       <div class="meter" id="usage-meter" style="display:none"><i id="usage-bar"></i></div>
     </div>
-
     <div id="pane-sub" class="tabpane">
-      <div class="grid-2">
-        <div>
-          <div class="field">
-            <label for="sub-key">API key</label>
-            <input type="text" id="sub-key" placeholder="vg-…" spellcheck="false">
-          </div>
-          <div class="field">
-            <label for="sub-plan">Plan</label>
-            <select id="sub-plan">
-              <option value="free">Free — 1,000 credits/mo · $0</option>
-              <option value="starter">Starter — 4,000 credits/mo · $30</option>
-              <option value="growth">Growth — 15,000 credits/mo · $100</option>
-              <option value="payg">Pay-as-you-go — $0.008/credit</option>
-            </select>
-          </div>
-          <button class="btn btn-accent" id="btn-sub">Update subscription</button>
+      <div class="row2" style="max-width:640px">
+        <div class="field">
+          <label for="sub-key">API key</label>
+          <input type="text" id="sub-key" placeholder="vg-…" spellcheck="false">
         </div>
-        <div>
-          <p class="hint" style="margin-top:26px">Changing plan takes effect immediately for this key.
-          Card collection at checkout arrives with billing go-live; until then paid plans are provisioned
-          on invoice. Enterprise is sales-assisted.</p>
+        <div class="field">
+          <label for="sub-plan">Plan</label>
+          <select id="sub-plan">
+            <option value="free">Free — 1,000/mo · $0</option>
+            <option value="starter">Starter — 4,000/mo · $30</option>
+            <option value="growth">Growth — 15,000/mo · $100</option>
+            <option value="payg">Pay-as-you-go — $0.008/credit</option>
+          </select>
         </div>
       </div>
+      <button class="btn btn-accent" id="btn-sub">Update subscription</button>
       <div class="result" id="sub-result"></div>
     </div>
-
-    <div id="pane-demo" class="tabpane">
-      <div class="grid-2">
-        <div>
-          <div class="field" style="max-width:none">
-            <label for="demo-key">API key</label>
-            <input type="text" id="demo-key" placeholder="vg-…" spellcheck="false">
-          </div>
-          <div class="field" style="max-width:none">
-            <label for="demo-output">Agent output to verify</label>
-            <textarea id="demo-output" rows="3">Q3 revenue grew 12% to $4.1M. The board approved a $9M buyback.</textarea>
-          </div>
-          <div class="field" style="max-width:none">
-            <label for="demo-evidence">Source evidence</label>
-            <textarea id="demo-evidence" rows="4">Revenue for the third quarter increased 12% year over year to $4.1M, driven by enterprise renewals. The board approved a $9M share buyback program.</textarea>
-            <p class="hint">Try deleting the second evidence sentence, or changing 12% to 15% in the output — watch the verdict flip.</p>
-          </div>
-          <div class="field">
-            <label for="demo-rigor">Rigor level</label>
-            <select id="demo-rigor">
-              <option value="fast">fast — 1 credit</option>
-              <option value="standard" selected>standard — 2 credits</option>
-              <option value="strict">strict — 3 credits</option>
-            </select>
-          </div>
-          <button class="btn btn-accent" id="btn-demo">Run verification</button>
-        </div>
-        <div>
-          <div class="demo-verdict" id="demo-verdict"></div>
-          <div class="result" id="demo-result" style="max-height:420px;overflow:auto"></div>
-        </div>
+    <div id="pane-verify" class="tabpane">
+      <div class="field" style="max-width:420px">
+        <label for="v-key">API key</label>
+        <input type="text" id="v-key" placeholder="vg-…" spellcheck="false">
       </div>
+      <div class="field"><label for="v-output">Output to verify</label><textarea id="v-output" rows="2">The company was founded in 1901 in Zurich.</textarea></div>
+      <div class="field"><label for="v-evidence">Source evidence</label><textarea id="v-evidence" rows="3">Revenue increased 12% to $4.1M in the third quarter.</textarea></div>
+      <button class="btn btn-accent" id="btn-verify2">Run verification</button>
+      <div class="result" id="verify2-result"></div>
     </div>
   </div>
 </section>
@@ -383,7 +332,7 @@ curl -s https://api.agentsure.dev/verify \
 <footer>
   <div class="wrap foot-in">
     <span>© 2026 Agentsure — the receipt is the product.</span>
-    <span><a href="/docs">API reference</a> · <a href="#pricing">Pricing</a> · <a href="mailto:sales@agentsure.dev">sales@agentsure.dev</a></span>
+    <span><a href="/docs">API reference</a> · <a href="#s-pricing">Pricing</a> · <a href="mailto:sales@agentsure.dev">sales@agentsure.dev</a></span>
   </div>
 </footer>
 
@@ -391,126 +340,123 @@ curl -s https://api.agentsure.dev/verify \
 (function(){
   "use strict";
   var $ = function(id){ return document.getElementById(id); };
-
-  /* tabs */
-  var tabs = document.querySelectorAll('.tab');
-  tabs.forEach(function(t){
-    t.addEventListener('click', function(){
-      tabs.forEach(function(x){ x.classList.remove('active'); });
-      document.querySelectorAll('.tabpane').forEach(function(p){ p.classList.remove('active'); });
-      t.classList.add('active');
-      $(t.dataset.pane).classList.add('active');
-    });
-  });
-  /* pricing buttons preselect a plan in the subscription tab */
-  document.querySelectorAll('[data-plan]').forEach(function(a){
-    a.addEventListener('click', function(){
-      document.querySelector('.tab[data-pane="pane-sub"]').click();
-      $('sub-plan').value = a.dataset.plan;
-    });
-  });
-
-  function show(el, text, ok){
-    el.textContent = text;
-    el.className = 'result show ' + (ok ? 'ok' : 'err');
+  var savedKey = null;
+  try { savedKey = localStorage.getItem("vg_key"); } catch(e){}
+  if (savedKey) {
+    $("email-field").style.display = "none";
+    ["usage-key","sub-key","v-key"].forEach(function(id){ $(id).value = savedKey; });
   }
-  function rememberKey(k){
-    try { localStorage.setItem('vg_key', k); } catch(e){}
-    ['usage-key','sub-key','demo-key'].forEach(function(id){ if(!$(id).value) $(id).value = k; });
-  }
-  try {
-    var saved = localStorage.getItem('vg_key');
-    if (saved) ['usage-key','sub-key','demo-key'].forEach(function(id){ $(id).value = saved; });
-  } catch(e){}
 
+  function setSeal(state, label){
+    $("seal").dataset.state = state;
+    $("seal-label").textContent = label;
+    $("seal-label").style.color = state === "idle" ? "var(--ink-2)"
+      : state === "ok" ? "var(--accent)" : state === "bad" ? "var(--risk)" : "var(--partial)";
+  }
   function post(url, body, key){
-    var headers = {'Content-Type':'application/json'};
-    if (key) headers['X-API-Key'] = key;
-    return fetch(url, {method:'POST', headers:headers, body:JSON.stringify(body)})
+    var headers = {"Content-Type":"application/json"};
+    if (key) headers["X-API-Key"] = key;
+    return fetch(url, {method:"POST", headers:headers, body:JSON.stringify(body)})
       .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, body:j}; }); });
   }
+  function rememberKey(k){
+    try { localStorage.setItem("vg_key", k); } catch(e){}
+    ["usage-key","sub-key","v-key"].forEach(function(id){ if(!$(id).value) $(id).value = k; });
+  }
 
-  /* create key */
-  $('btn-create').addEventListener('click', function(){
-    var email = $('email').value.trim();
-    if (!email) { show($('key-result'), 'Enter your email address first.', false); return; }
-    post('/keys', {email: email}).then(function(r){
-      if (r.ok) {
-        show($('key-result'), r.body.api_key + '\n\nplan: ' + r.body.plan +
-          '  ·  monthly credits: ' + r.body.monthly_credits + '\n' + r.body.note, true);
-        $('key-chip').style.display = 'flex';
-        window.__vg_new_key = r.body.api_key;
-        rememberKey(r.body.api_key);
-      } else {
-        show($('key-result'), 'Error: ' + JSON.stringify(r.body.detail || r.body), false);
+  $("demo-form").addEventListener("submit", function(e){
+    e.preventDefault();
+    var errEl = $("d-error");
+    errEl.className = "error-line";
+    $("d-submit").disabled = true;
+    var proceed = savedKey ? Promise.resolve({ok:true, body:{api_key: savedKey}}) : post("/keys", {email: $("d-email").value.trim()});
+
+    proceed.then(function(keyRes){
+      if (!keyRes.ok) throw new Error(keyRes.body.detail || "could not create a key");
+      var key = keyRes.body.api_key || savedKey;
+      savedKey = key;
+      rememberKey(key);
+      return post("/verify", {
+        output: $("d-claim").value,
+        source_documents: [{id:"evidence-1", text: $("d-evidence").value}],
+        rigor_level: $("d-rigor").value
+      }, key);
+    }).then(function(res){
+      if (!res.ok) throw new Error(res.body.detail || "verification failed");
+      var v = res.body.verdict;
+      var state = v === "supported" ? "ok" : v === "partially_supported" ? "partial" : "bad";
+      var label = v === "supported" ? "Verified" : v === "partially_supported" ? "Partially verified" : "Unverified";
+      setSeal(state, label);
+      $("demo-verdict").style.display = "block";
+      $("demo-verdict").innerHTML = "Verdict <b>" + v.replace("_"," ") + "</b> &nbsp; confidence <b>" + res.body.confidence + "</b>";
+      var r = res.body.receipt;
+      $("demo-receipt").style.display = "block";
+      $("demo-receipt").innerHTML =
+        '<div class="r-row"><span class="r-k">receipt_id</span><span class="r-v">' + r.receipt_id + '</span></div>' +
+        '<div class="r-row"><span class="r-k">rigor_level</span><span class="r-v">' + r.rigor_level + '</span></div>' +
+        '<div class="r-row"><span class="r-k">signature</span><span class="r-v">' + r.signature.slice(0,24) + '…</span></div>';
+      if (!$("email-field").style.display || $("email-field").style.display !== "none") {
+        $("email-field").style.display = "none";
+        $("demo-key").style.display = "block";
+        $("demo-key").innerHTML = '<span class="k-val">' + savedKey + '</span><span class="k-note">Your API key — shown once, stored hashed. Save it now.</span>';
       }
-    }).catch(function(e){ show($('key-result'), 'Network error: ' + e, false); });
-  });
-  $('btn-copy').addEventListener('click', function(){
-    if (window.__vg_new_key) navigator.clipboard.writeText(window.__vg_new_key);
-    $('btn-copy').textContent = 'Copied';
-    setTimeout(function(){ $('btn-copy').textContent = 'Copy key'; }, 1500);
+    }).catch(function(err){
+      setSeal("bad", "Error");
+      errEl.textContent = String(err.message || err);
+      errEl.className = "error-line show";
+    }).finally(function(){
+      $("d-submit").disabled = false;
+    });
   });
 
-  /* usage */
-  $('btn-usage').addEventListener('click', function(){
-    var key = $('usage-key').value.trim();
-    fetch('/usage', {headers: {'X-API-Key': key}})
+  var tabs = document.querySelectorAll(".tab");
+  tabs.forEach(function(t){
+    t.addEventListener("click", function(){
+      tabs.forEach(function(x){ x.classList.remove("active"); });
+      document.querySelectorAll(".tabpane").forEach(function(p){ p.classList.remove("active"); });
+      t.classList.add("active");
+      $(t.dataset.pane).classList.add("active");
+    });
+  });
+  document.querySelectorAll("[data-plan]").forEach(function(a){
+    a.addEventListener("click", function(){
+      document.querySelector('.tab[data-pane="pane-sub"]').click();
+      $("sub-plan").value = a.dataset.plan;
+    });
+  });
+
+  function show(el, text, ok){ el.textContent = text; el.className = "result show " + (ok ? "ok" : "err"); }
+
+  $("btn-usage").addEventListener("click", function(){
+    var key = $("usage-key").value.trim();
+    fetch("/usage", {headers:{"X-API-Key":key}})
       .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, body:j}; }); })
       .then(function(r){
-        if (!r.ok) { $('usage-meter').style.display='none';
-          show($('usage-result'), 'Error: ' + JSON.stringify(r.body.detail || r.body), false); return; }
+        if (!r.ok) { $("usage-meter").style.display="none"; show($("usage-result"), "Error: " + JSON.stringify(r.body.detail || r.body), false); return; }
         var b = r.body;
-        var line = 'plan: ' + b.plan + '\nperiod: ' + b.period + '\ncredits used: ' + b.credits_used +
-          (b.credits_limit !== null ? ' / ' + b.credits_limit + '\nremaining: ' + b.credits_remaining
-                                    : '\nlimit: none (usage-billed)');
-        show($('usage-result'), line, true);
-        if (b.credits_limit) {
-          $('usage-meter').style.display='block';
-          $('usage-bar').style.width = Math.min(100, 100*b.credits_used/b.credits_limit) + '%';
-        } else { $('usage-meter').style.display='none'; }
+        show($("usage-result"), "plan: " + b.plan + "\nperiod: " + b.period + "\ncredits used: " + b.credits_used +
+          (b.credits_limit !== null ? " / " + b.credits_limit + "\nremaining: " + b.credits_remaining : "\nlimit: none (usage-billed)"), true);
+        if (b.credits_limit) { $("usage-meter").style.display="block"; $("usage-bar").style.width = Math.min(100, 100*b.credits_used/b.credits_limit) + "%"; }
+        else { $("usage-meter").style.display = "none"; }
         rememberKey(key);
-      })
-      .catch(function(e){ show($('usage-result'), 'Network error: ' + e, false); });
+      }).catch(function(e){ show($("usage-result"), "Network error: " + e, false); });
   });
 
-  /* subscription */
-  $('btn-sub').addEventListener('click', function(){
-    var key = $('sub-key').value.trim();
-    post('/subscribe', {plan: $('sub-plan').value}, key).then(function(r){
-      if (r.ok) {
-        show($('sub-result'), 'plan: ' + r.body.plan + '\nmonthly credits: ' +
-          (r.body.monthly_credits === null ? 'uncapped (usage-billed)' : r.body.monthly_credits) +
-          '\n' + r.body.note, true);
-        rememberKey(key);
-      } else {
-        show($('sub-result'), 'Error: ' + JSON.stringify(r.body.detail || r.body), false);
-      }
-    }).catch(function(e){ show($('sub-result'), 'Network error: ' + e, false); });
+  $("btn-sub").addEventListener("click", function(){
+    var key = $("sub-key").value.trim();
+    post("/subscribe", {plan: $("sub-plan").value}, key).then(function(r){
+      if (r.ok) { show($("sub-result"), "plan: " + r.body.plan + "\nmonthly credits: " + (r.body.monthly_credits === null ? "uncapped" : r.body.monthly_credits) + "\n" + r.body.note, true); rememberKey(key); }
+      else { show($("sub-result"), "Error: " + JSON.stringify(r.body.detail || r.body), false); }
+    }).catch(function(e){ show($("sub-result"), "Network error: " + e, false); });
   });
 
-  /* live demo */
-  $('btn-demo').addEventListener('click', function(){
-    var key = $('demo-key').value.trim();
-    var payload = {
-      output: $('demo-output').value,
-      source_documents: [{id: 'doc-1', text: $('demo-evidence').value}],
-      rigor_level: $('demo-rigor').value
-    };
-    show($('demo-result'), 'Verifying…', true);
-    $('demo-verdict').className = 'demo-verdict';
-    post('/verify', payload, key).then(function(r){
-      if (r.ok) {
-        var v = $('demo-verdict');
-        v.innerHTML = 'Verdict: <span class="v-badge v-' + r.body.verdict + '">' +
-          r.body.verdict.replace('_',' ') + '</span> &nbsp; confidence ' + r.body.confidence;
-        v.className = 'demo-verdict show';
-        show($('demo-result'), JSON.stringify(r.body, null, 2), true);
-        rememberKey(key);
-      } else {
-        show($('demo-result'), 'Error: ' + JSON.stringify(r.body.detail || r.body), false);
-      }
-    }).catch(function(e){ show($('demo-result'), 'Network error: ' + e, false); });
+  $("btn-verify2").addEventListener("click", function(){
+    var key = $("v-key").value.trim();
+    post("/verify", {output: $("v-output").value, source_documents:[{id:"doc-1", text: $("v-evidence").value}], rigor_level:"standard"}, key)
+      .then(function(r){
+        if (r.ok) { show($("verify2-result"), JSON.stringify(r.body, null, 2), true); rememberKey(key); }
+        else { show($("verify2-result"), "Error: " + JSON.stringify(r.body.detail || r.body), false); }
+      }).catch(function(e){ show($("verify2-result"), "Network error: " + e, false); });
   });
 })();
 </script>

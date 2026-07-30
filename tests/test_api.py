@@ -166,5 +166,5 @@ class TestLanding:
         response = client.get("/")
         assert response.status_code == 200
         assert response.headers["content-type"].startswith("text/html")
-        for marker in ("Create my API key", "Pricing", "Agentsure", "/receipt/verify"):
+        for marker in ("Run verification", "Pricing", "Agentsure", "Proof, not promises."):
             assert marker in response.text
