@@ -9,7 +9,14 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
 from app.accounts import store
-from app.models import Receipt, ReceiptVerifyResponse, VerifyRequest, VerifyResponse
+from app.models import (
+    Receipt,
+    ReceiptVerifyResponse,
+    SessionSummary,
+    Verdict,
+    VerifyRequest,
+    VerifyResponse,
+)
 from app.receipt.build import build_receipt
 from app.receipt.sign import SigningKeyMissingError, verify_signature
 from app.verify.judge import HeuristicJudge, JudgeClient
@@ -90,10 +97,23 @@ async def verify(
     result = run_verification(body.output, body.source_documents, body.rigor_level, judge)
     try:
         receipt = build_receipt(
-            body.output, body.source_documents, result.verdict, body.rigor_level
+            body.output,
+            body.source_documents,
+            result.verdict,
+            body.rigor_level,
+            issuer_ref=body.issuer_ref,
         )
     except SigningKeyMissingError as exc:
         raise HTTPException(status_code=503, detail="signing key not configured") from exc
+    if body.session_id:
+        store.record_receipt(
+            key,
+            body.session_id,
+            receipt.receipt_id,
+            result.verdict.value,
+            result.confidence,
+            receipt.issued_at,
+        )
     return VerifyResponse(
         verdict=result.verdict,
         unsupported_claims=result.unsupported_claims,
@@ -158,4 +178,19 @@ async def usage(key: Annotated[store.KeyRecord, Depends(require_api_key)]) -> Us
         credits_used=info.credits_used,
         credits_limit=info.credits_limit,
         credits_remaining=info.credits_remaining,
+    )
+
+
+@app.get("/sessions/{session_id}/summary")
+async def session_summary(
+    session_id: str,
+    key: Annotated[store.KeyRecord, Depends(require_api_key)],
+) -> SessionSummary:
+    info = store.session_summary(key, session_id)
+    return SessionSummary(
+        session_id=info.session_id,
+        total_checks=info.total_checks,
+        verdict_counts={Verdict(v): count for v, count in info.verdict_counts.items()},
+        unsupported_rate_trend=info.unsupported_rate_trend,
+        receipt_ids=info.receipt_ids,
     )

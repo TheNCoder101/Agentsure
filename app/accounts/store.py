@@ -48,6 +48,15 @@ class KeyRecord:
 
 
 @dataclass(frozen=True)
+class SessionSummaryData:
+    session_id: str
+    total_checks: int
+    verdict_counts: dict[str, int]
+    unsupported_rate_trend: list[float]
+    receipt_ids: list[str]
+
+
+@dataclass(frozen=True)
 class UsageInfo:
     plan: str
     period: str
@@ -97,6 +106,20 @@ def init_db() -> None:
                 credits_used INTEGER NOT NULL DEFAULT 0,
                 PRIMARY KEY (key_id, period)
             )"""
+        )
+        conn.execute(
+            """CREATE TABLE IF NOT EXISTS receipts (
+                receipt_id TEXT PRIMARY KEY,
+                key_id INTEGER NOT NULL REFERENCES api_keys(id),
+                session_id TEXT,
+                verdict TEXT NOT NULL,
+                confidence REAL NOT NULL,
+                issued_at TEXT NOT NULL
+            )"""
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_receipts_session "
+            "ON receipts (key_id, session_id, issued_at)"
         )
 
 
@@ -163,6 +186,54 @@ def set_plan(record: KeyRecord, plan: str) -> KeyRecord:
     with _connect() as conn:
         conn.execute("UPDATE api_keys SET plan = ? WHERE id = ?", (plan, record.key_id))
     return KeyRecord(key_id=record.key_id, email=record.email, plan=plan)
+
+
+def record_receipt(
+    record: KeyRecord,
+    session_id: str | None,
+    receipt_id: str,
+    verdict: str,
+    confidence: float,
+    issued_at: str,
+) -> None:
+    with _connect() as conn:
+        conn.execute(
+            "INSERT INTO receipts (receipt_id, key_id, session_id, verdict, confidence, "
+            "issued_at) VALUES (?, ?, ?, ?, ?, ?)",
+            (receipt_id, record.key_id, session_id, verdict, confidence, issued_at),
+        )
+
+
+def session_summary(record: KeyRecord, session_id: str) -> SessionSummaryData:
+    """Aggregate every receipt issued under this key for one session_id.
+
+    Turns a pile of point-in-time receipts into a trend a compliance officer
+    can act on: a rising non-supported rate across a session is a signal no
+    single receipt can carry on its own.
+    """
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT receipt_id, verdict FROM receipts WHERE key_id = ? AND session_id = ? "
+            "ORDER BY issued_at",
+            (record.key_id, session_id),
+        ).fetchall()
+
+    verdict_counts: dict[str, int] = {}
+    trend: list[float] = []
+    non_supported = 0
+    for i, (_, verdict) in enumerate(rows, start=1):
+        verdict_counts[verdict] = verdict_counts.get(verdict, 0) + 1
+        if verdict != "supported":
+            non_supported += 1
+        trend.append(round(non_supported / i, 4))
+
+    return SessionSummaryData(
+        session_id=session_id,
+        total_checks=len(rows),
+        verdict_counts=verdict_counts,
+        unsupported_rate_trend=trend,
+        receipt_ids=[r[0] for r in rows],
+    )
 
 
 def get_usage(record: KeyRecord) -> UsageInfo:

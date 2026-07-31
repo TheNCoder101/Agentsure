@@ -40,6 +40,18 @@ class TestReceiptBuild:
     def test_fresh_receipt_signature_verifies(self) -> None:
         assert verify_signature(_receipt_fields()) is True
 
+    def test_issuer_ref_included_and_verifies(self) -> None:
+        receipt = build_receipt(
+            "Revenue rose 12%.",
+            _DOCS,
+            Verdict.SUPPORTED,
+            RigorLevel.STANDARD,
+            issuer_ref="system-provider:acme-agent",
+        )
+        fields = receipt.model_dump(mode="json")
+        assert fields["issuer_ref"] == "system-provider:acme-agent"
+        assert verify_signature(fields) is True
+
 
 class TestTamperEvidence:
     @pytest.mark.parametrize(
@@ -52,6 +64,7 @@ class TestTamperEvidence:
             ("sources_sha256", ["0" * 64]),
             ("rigor_level", "strict"),
             ("engine_version", "9.9.9"),
+            ("issuer_ref", "tampered-issuer"),
         ],
     )
     def test_tampering_any_field_invalidates(self, field: str, value: object) -> None:

@@ -110,6 +110,66 @@ class TestReceiptEndpoint:
         assert client.post("/receipt/verify", json=tampered).json() == {"valid": False}
 
 
+class TestSessions:
+    """A session groups related /verify calls (e.g. one agent run) so a
+    compliance officer can see a trend, not just an isolated receipt — see
+    Gardhouse, Oueslati & Kolt, Regulating AI Agents (July 2026), on why
+    one-off point-in-time artifacts miss harm that emerges across multiple
+    outputs.
+    """
+
+    def _verify_in_session(
+        self, client: TestClient, key: str, output: str, session_id: str
+    ) -> Any:
+        return client.post(
+            "/verify",
+            headers={"X-API-Key": key},
+            json={
+                "output": output,
+                "source_documents": [{"id": "10q-2026", "text": GROUNDED_SOURCE}],
+                "rigor_level": "fast",
+                "session_id": session_id,
+            },
+        )
+
+    def test_summary_aggregates_calls_in_the_same_session(
+        self, client: TestClient, api_key: str
+    ) -> None:
+        session_id = "agent-run-42"
+        self._verify_in_session(client, api_key, GROUNDED_OUTPUT, session_id)
+        self._verify_in_session(client, api_key, UNGROUNDED_OUTPUT, session_id)
+        self._verify_in_session(client, api_key, UNGROUNDED_OUTPUT, session_id)
+
+        response = client.get(
+            f"/sessions/{session_id}/summary", headers={"X-API-Key": api_key}
+        )
+        body = response.json()
+        assert body["total_checks"] == 3
+        assert body["verdict_counts"]["supported"] == 1
+        assert body["verdict_counts"]["unsupported"] == 2
+        assert body["unsupported_rate_trend"] == [0.0, 0.5, 0.6667]
+        assert len(body["receipt_ids"]) == 3
+
+    def test_calls_without_session_id_are_not_recorded(
+        self, client: TestClient, api_key: str
+    ) -> None:
+        _verify(client, api_key, GROUNDED_OUTPUT, "fast")
+        response = client.get(
+            "/sessions/untouched-session/summary", headers={"X-API-Key": api_key}
+        )
+        assert response.json()["total_checks"] == 0
+
+    def test_session_summary_scoped_per_key(self, client: TestClient, api_key: str) -> None:
+        session_id = "shared-session-name"
+        self._verify_in_session(client, api_key, GROUNDED_OUTPUT, session_id)
+
+        other_key = client.post("/keys", json={"email": "other@example.com"}).json()["api_key"]
+        response = client.get(
+            f"/sessions/{session_id}/summary", headers={"X-API-Key": other_key}
+        )
+        assert response.json()["total_checks"] == 0
+
+
 class TestAuthAndCredits:
     def test_missing_key_rejected(self, client: TestClient) -> None:
         response = client.post("/verify", json={})

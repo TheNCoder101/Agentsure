@@ -7,12 +7,37 @@ that pass the cheap pass are NEVER sent to the judge.
 
 from dataclasses import dataclass
 
-from app.models import ClaimEvidence, RigorLevel, SourceDocument, UnsupportedClaim, Verdict
+from app.models import (
+    ClaimEvidence,
+    RigorLevel,
+    Severity,
+    SourceDocument,
+    UnsupportedClaim,
+    Verdict,
+)
 from app.verify.cheap import run_cheap_pass
 from app.verify.claims import extract_claims
 from app.verify.judge import JudgeClient, self_consistent_judge
 
 STRICT_SAMPLES = 3
+
+_HARD_EVIDENCE_MARKERS = ("number mismatch", "fabricated citation")
+
+
+def _severity(reason: str, was_escalated: bool) -> Severity:
+    """Derive a machine-readable escalation signal for human oversight.
+
+    A structural red flag (fabricated citation, mismatched number) is
+    unambiguous regardless of rigor. Absent that, a claim the judge reviewed
+    and still rejected is a real but reasoned signal; a claim flagged by the
+    cheap pass alone (never escalated, e.g. under `fast` rigor) is the
+    weakest signal — worth surfacing, not worth an automatic override.
+    """
+    if any(marker in reason for marker in _HARD_EVIDENCE_MARKERS):
+        return "high"
+    if was_escalated:
+        return "moderate"
+    return "info"
 
 
 @dataclass(frozen=True)
@@ -37,7 +62,9 @@ def run_verification(
             verdict=Verdict.UNSUPPORTED,
             unsupported_claims=[
                 UnsupportedClaim(
-                    claim=output, reason="no verifiable atomic claims could be extracted"
+                    claim=output,
+                    reason="no verifiable atomic claims could be extracted",
+                    severity="high",
                 )
             ],
             per_claim_evidence=[],
@@ -50,8 +77,9 @@ def run_verification(
 
     for check in run_cheap_pass(claims, sources):
         supported, score, reason = check.supported, check.score, check.reason
+        escalated = check.flagged and rigor_level is not RigorLevel.FAST
 
-        if check.flagged and rigor_level is not RigorLevel.FAST:
+        if escalated:
             if rigor_level is RigorLevel.STRICT:
                 verdict = self_consistent_judge(
                     judge_client, check.claim, sources, samples=STRICT_SAMPLES
@@ -73,7 +101,13 @@ def run_verification(
         if supported:
             claim_confidences.append(score)
         else:
-            unsupported.append(UnsupportedClaim(claim=check.claim, reason=reason))
+            unsupported.append(
+                UnsupportedClaim(
+                    claim=check.claim,
+                    reason=reason,
+                    severity=_severity(reason, escalated),
+                )
+            )
             claim_confidences.append(1.0 - score)
 
     if not unsupported:

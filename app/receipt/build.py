@@ -19,6 +19,7 @@ def build_receipt(
     sources: list[SourceDocument],
     verdict: Verdict,
     rigor_level: RigorLevel,
+    issuer_ref: str | None = None,
 ) -> Receipt:
     receipt = Receipt(
         receipt_id=str(uuid.uuid4()),
@@ -28,6 +29,7 @@ def build_receipt(
         sources_sha256=[sha256_hex(doc.text) for doc in sources],
         rigor_level=rigor_level,
         engine_version=ENGINE_VERSION,
+        issuer_ref=issuer_ref,
         signature="",
     )
     return receipt.model_copy(update={"signature": sign(receipt.model_dump(mode="json"))})

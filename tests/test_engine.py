@@ -1,9 +1,10 @@
 """Unit tests for claim extraction, the cheap pass, and the judge."""
 
-from app.models import SourceDocument
+from app.models import RigorLevel, SourceDocument
 from app.verify.cheap import check_claim
 from app.verify.claims import extract_claims
 from app.verify.judge import HeuristicJudge, JudgeVerdict, self_consistent_judge
+from app.verify.pipeline import run_verification
 
 
 def _docs(*texts: str) -> list[SourceDocument]:
@@ -115,3 +116,42 @@ class TestJudge:
         verdict = self_consistent_judge(FlipJudge(), "claim", _docs("text"), samples=3)
         assert verdict.supported
         assert verdict.confidence < 0.9  # discounted by imperfect agreement
+
+
+class TestSeverity:
+    """Severity gives a deployer's oversight workflow a machine-readable
+    escalation signal (cf. AI Act Article 14(4)'s human-override requirement).
+    """
+
+    def test_hard_evidence_mismatch_is_high_severity(self) -> None:
+        result = run_verification(
+            "Revenue for the quarter increased 15% year over year",
+            _docs("Revenue for the quarter increased 12% year over year to $4.1M."),
+            RigorLevel.FAST,
+            HeuristicJudge(),
+        )
+        assert result.unsupported_claims[0].severity == "high"
+
+    def test_judge_reviewed_rejection_is_moderate_severity(self) -> None:
+        result = run_verification(
+            "The CEO resigned yesterday",
+            _docs("Revenue increased 12% to $4.1M in the third quarter."),
+            RigorLevel.STANDARD,
+            HeuristicJudge(),
+        )
+        assert result.unsupported_claims[0].severity == "moderate"
+
+    def test_cheap_pass_only_rejection_is_info_severity(self) -> None:
+        result = run_verification(
+            "The CEO resigned yesterday",
+            _docs("Revenue increased 12% to $4.1M in the third quarter."),
+            RigorLevel.FAST,
+            HeuristicJudge(),
+        )
+        assert result.unsupported_claims[0].severity == "info"
+
+    def test_no_extractable_claims_is_high_severity(self) -> None:
+        result = run_verification(
+            "Yes.", _docs("Revenue increased 12%."), RigorLevel.FAST, HeuristicJudge()
+        )
+        assert result.unsupported_claims[0].severity == "high"

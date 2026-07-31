@@ -1,6 +1,7 @@
 """Request/response models for the verification gate, per specs/verification-gate.md."""
 
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -26,11 +27,17 @@ class VerifyRequest(BaseModel):
     output: str = Field(min_length=1)
     source_documents: list[SourceDocument] = Field(min_length=1)
     rigor_level: RigorLevel = RigorLevel.STANDARD
+    session_id: str | None = None
+    issuer_ref: str | None = None
+
+
+Severity = Literal["info", "moderate", "high"]
 
 
 class UnsupportedClaim(BaseModel):
     claim: str
     reason: str
+    severity: Severity
 
 
 class ClaimEvidence(BaseModel):
@@ -48,6 +55,7 @@ class Receipt(BaseModel):
     sources_sha256: list[str]
     rigor_level: RigorLevel
     engine_version: str
+    issuer_ref: str | None
     signature: str
 
 
@@ -61,3 +69,11 @@ class VerifyResponse(BaseModel):
 
 class ReceiptVerifyResponse(BaseModel):
     valid: bool
+
+
+class SessionSummary(BaseModel):
+    session_id: str
+    total_checks: int
+    verdict_counts: dict[Verdict, int]
+    unsupported_rate_trend: list[float]
+    receipt_ids: list[str]
